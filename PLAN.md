@@ -73,7 +73,8 @@
 - [x] `next build` без попереджень; TS strict + ESLint чисті.
 
 ### Етап 4 — Деплой (у процесі)
-- [x] Репозиторій: GitHub `etveshp/qrmenu` — локальна історія запушена (`main`, 5 комітів), `engines.node` закріплено.
+- [x] Репозиторій: GitHub `etveshp/qrmenu` — локальна історія запушена (`main`), `engines.node` закріплено.
+- [x] Фікс збірки на Vercel: прибрано `output: 'standalone'` (Turbopack не генерує `.nft.json` — крок Vercel падав).
 - [ ] Підключення Vercel + env-змінні (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
 - [ ] Домен (опційно).
 - [ ] Smoke-тест продакшену: гостьове меню → замовлення → кабінет → Realtime.
