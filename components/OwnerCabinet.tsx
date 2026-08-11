@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
-import { useQRMenu, MenuItem, Category, Order } from '../lib/store';
+import { useQRMenu, MenuItem, Category, Order, OrderStatus } from '../lib/store';
+import { supabase } from '../lib/supabase/client';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -53,6 +54,15 @@ const IMAGE_PRESETS = [
   { name: 'Red Wine', url: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=500&q=80' },
 ];
 
+// Allowed order status transitions (workflow guard)
+const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  new: ['preparing', 'cancelled'],
+  preparing: ['delivered', 'cancelled'],
+  delivered: ['completed'],
+  completed: [],
+  cancelled: [],
+};
+
 export default function OwnerCabinet() {
   const {
     menuItems,
@@ -60,6 +70,11 @@ export default function OwnerCabinet() {
     orders,
     tables,
     language,
+    isOwner,
+    ownerEmail,
+    isLoading,
+    signIn,
+    signOut,
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
@@ -73,13 +88,8 @@ export default function OwnerCabinet() {
     t
   } = useQRMenu();
 
+  const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('qr_menu_admin_auth') === 'true';
-    }
-    return false;
-  });
   const [loginError, setLoginError] = useState<boolean>(false);
 
   // Tabs: 'orders', 'menu', 'categories', 'tables'
@@ -162,6 +172,16 @@ export default function OwnerCabinet() {
     });
   };
 
+  // dataURL -> Blob so compressed images can be uploaded to Supabase Storage
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const [meta, b64] = dataUrl.split(',');
+    const mime = meta.match(/data:(.*?);/)?.[1] ?? 'image/jpeg';
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  };
+
   const handleImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setUploadError(t('menu.invalid_file'));
@@ -171,10 +191,17 @@ export default function OwnerCabinet() {
     setIsUploading(true);
     try {
       const base64Url = await compressImage(file);
-      setMenuFormState(prev => ({ ...prev, image: base64Url }));
+      // Upload to Supabase Storage instead of storing a data-URL
+      const path = `menu/${crypto.randomUUID?.() ?? Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('dish-images')
+        .upload(path, dataUrlToBlob(base64Url), { contentType: 'image/jpeg' });
+      if (uploadError) throw uploadError;
+      const { data: pub } = supabase.storage.from('dish-images').getPublicUrl(path);
+      setMenuFormState(prev => ({ ...prev, image: pub.publicUrl }));
     } catch (err) {
-      console.error("Error compressing image: ", err);
-      setUploadError(language === 'ua' ? 'Помилка при обробці зображення' : 'Error processing image');
+      console.error('Error uploading image: ', err);
+      setUploadError(language === 'ua' ? 'Помилка при завантаженні зображення' : 'Error uploading image');
     } finally {
       setIsUploading(false);
     }
@@ -217,6 +244,36 @@ export default function OwnerCabinet() {
 
   // Table creator state
   const [newTableNumber, setNewTableNumber] = useState<string>('');
+
+  // Base URL used for QR codes (guest menu link)
+  const baseOriginUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
+  // Locally generated QR data URLs per table (replaces external qrserver API)
+  const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
+
+  // Regenerate QR codes whenever tables change
+  useEffect(() => {
+    let cancelled = false;
+    const generate = async () => {
+      const entries: Record<string, string> = {};
+      for (const label of tables) {
+        try {
+          entries[label] = await QRCode.toDataURL(`${baseOriginUrl}/?table=${label}`, {
+            width: 400,
+            margin: 2,
+            color: { dark: '#1c1917', light: '#ffffff' },
+          });
+        } catch (e) {
+          console.error('QR generation failed for table', label, e);
+        }
+      }
+      if (!cancelled) setQrDataUrls(entries);
+    };
+    generate();
+    return () => {
+      cancelled = true;
+    };
+  }, [tables, baseOriginUrl]);
 
   // Swipe/drag-scroll for admin tabs
   const tabsScrollRef = useRef<HTMLDivElement>(null);
@@ -302,7 +359,7 @@ export default function OwnerCabinet() {
 
   // Monitor for new orders to play chime
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isOwner) return;
     const currentNewOrdersCount = orders.filter(o => o.status === 'new').length;
     
     // Play chime only if current new count increases
@@ -310,23 +367,23 @@ export default function OwnerCabinet() {
       playNewOrderChime();
     }
     prevOrdersCountRef.current = currentNewOrdersCount;
-  }, [orders, isAuthenticated, playNewOrderChime]);
+  }, [orders, isOwner, playNewOrderChime]);
 
   // Handle Login
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') {
-      setIsAuthenticated(true);
-      setLoginError(false);
-      sessionStorage.setItem('qr_menu_admin_auth', 'true');
-    } else {
+    const { error } = await signIn(email.trim(), password);
+    if (error) {
+      console.error('Login failed', error);
       setLoginError(true);
+    } else {
+      setLoginError(false);
+      setPassword('');
     }
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('qr_menu_admin_auth');
+    signOut().catch((err) => console.error('Logout failed', err));
   };
 
   const downloadQRCode = async (tableId: string) => {
@@ -395,16 +452,26 @@ export default function OwnerCabinet() {
   };
 
   // Save Menu Item
-  const handleSaveMenuItem = (e: React.FormEvent) => {
+  const handleSaveMenuItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!menuFormState.nameUa || !menuFormState.nameEn || !menuFormState.nameHu) return;
-
-    if (editingMenuItemId) {
-      updateMenuItem(editingMenuItemId, menuFormState);
-    } else {
-      addMenuItem(menuFormState);
+    const price = Math.round(Number(menuFormState.price));
+    if (Number.isNaN(price) || price < 0) {
+      window.alert(t('menu.price_invalid'));
+      return;
     }
-    setIsMenuFormOpen(false);
+    const payload = { ...menuFormState, price };
+    try {
+      if (editingMenuItemId) {
+        await updateMenuItem(editingMenuItemId, payload);
+      } else {
+        await addMenuItem(payload);
+      }
+      setIsMenuFormOpen(false);
+    } catch (err) {
+      console.error('Failed to save menu item', err);
+      window.alert(t('common.save_error'));
+    }
   };
 
   // Open Category Form for adding
@@ -432,25 +499,34 @@ export default function OwnerCabinet() {
   };
 
   // Save Category
-  const handleSaveCategory = (e: React.FormEvent) => {
+  const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catFormState.nameUa || !catFormState.nameEn || !catFormState.nameHu) return;
 
-    if (editingCatId) {
-      updateCategory(editingCatId, catFormState);
-    } else {
-      addCategory(catFormState);
+    try {
+      if (editingCatId) {
+        await updateCategory(editingCatId, catFormState);
+      } else {
+        await addCategory(catFormState);
+      }
+      setIsCatFormOpen(false);
+    } catch (err) {
+      console.error('Failed to save category', err);
+      window.alert(t('common.save_error'));
     }
-    setIsCatFormOpen(false);
   };
 
   // Create Table
-  const handleCreateTable = (e: React.FormEvent) => {
+  const handleCreateTable = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanTable = newTableNumber.trim();
-    if (cleanTable) {
-      addTable(cleanTable);
+    if (!cleanTable) return;
+    try {
+      await addTable(cleanTable);
       setNewTableNumber('');
+    } catch (err) {
+      console.error('Failed to create table', err);
+      window.alert(t('common.save_error'));
     }
   };
 
@@ -461,9 +537,7 @@ export default function OwnerCabinet() {
 
   const pendingOrdersCount = orders.filter(o => o.status === 'new' || o.status === 'preparing').length;
 
-  const baseOriginUrl = typeof window !== 'undefined' ? window.location.origin : '';
-
-  if (!isAuthenticated) {
+  if (!isOwner) {
     return (
       <div id="admin-login-wrapper" className="w-full max-w-md mx-auto bg-stone-50 min-h-screen flex items-center justify-center p-4">
         <motion.div 
@@ -478,12 +552,25 @@ export default function OwnerCabinet() {
             <h2 className="text-xl font-extrabold tracking-tight">
               {t('login.title')}
             </h2>
-            <p className="text-xs text-stone-400 font-medium">
-              {t('login.default_notice')}
-            </p>
           </div>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="admin-email-field" className="text-xs font-bold text-stone-500">
+                {t('login.email')}
+              </label>
+              <input
+                id="admin-email-field"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="owner@cafe.com"
+                autoComplete="email"
+                className="w-full bg-stone-50 px-4 py-3 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                required
+              />
+            </div>
+
             <div className="flex flex-col gap-1.5">
               <label htmlFor="admin-password-field" className="text-xs font-bold text-stone-500">
                 {t('login.password')}
@@ -494,6 +581,7 @@ export default function OwnerCabinet() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 className="w-full bg-stone-50 px-4 py-3 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
               />
@@ -747,7 +835,18 @@ export default function OwnerCabinet() {
                         <select
                           id={`status-select-${order.id}`}
                           value={order.status}
-                          onChange={(e) => updateOrderStatus(order.id, e.target.value as Order['status'])}
+                          onChange={(e) => {
+                            const next = e.target.value as OrderStatus;
+                            if (next === order.status) return;
+                            if (!ALLOWED_STATUS_TRANSITIONS[order.status].includes(next)) {
+                              window.alert(t('orders.invalid_transition'));
+                              return;
+                            }
+                            updateOrderStatus(order.id, next).catch((err) => {
+                              console.error('Failed to update order status', err);
+                              window.alert(t('common.save_error'));
+                            });
+                          }}
                           className={`text-xs font-black px-2.5 py-1.5 rounded-xl border focus:outline-none transition-colors ${
                             order.status === 'new'
                               ? 'bg-rose-50 text-rose-700 border-rose-200'
@@ -769,9 +868,14 @@ export default function OwnerCabinet() {
 
                         <button
                           id={`delete-order-${order.id}`}
-                          onClick={() => {
+                          onClick={async () => {
                             if (confirm(t('orders.delete_confirm'))) {
-                              deleteOrder(order.id);
+                              try {
+                                await deleteOrder(order.id);
+                              } catch (err) {
+                                console.error('Failed to delete order', err);
+                                window.alert(t('common.delete_error'));
+                              }
                             }
                           }}
                           className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 hover:border-rose-100 bg-white"
@@ -865,9 +969,14 @@ export default function OwnerCabinet() {
                           </button>
                           <button
                             id={`delete-dish-btn-${item.id}`}
-                            onClick={() => {
+                            onClick={async () => {
                               if (confirm(t('menu.delete_item_confirm'))) {
-                                deleteMenuItem(item.id);
+                                try {
+                                  await deleteMenuItem(item.id);
+                                } catch (err) {
+                                  console.error('Failed to delete dish', err);
+                                  window.alert(t('common.delete_error'));
+                                }
                               }
                             }}
                             className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 bg-white"
@@ -932,9 +1041,14 @@ export default function OwnerCabinet() {
                       </button>
                       <button
                         id={`delete-cat-${cat.id}`}
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm(t('cat.delete_confirm'))) {
-                            deleteCategory(cat.id);
+                            try {
+                              await deleteCategory(cat.id);
+                            } catch (err) {
+                              console.error('Failed to delete category', err);
+                              window.alert(t('common.delete_error'));
+                            }
                           }
                         }}
                         className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-stone-100 bg-white"
@@ -992,7 +1106,6 @@ export default function OwnerCabinet() {
               {tables.map((tableId) => {
                 // Point URL specifically with table parameter
                 const guestMenuUrl = `${baseOriginUrl}/?table=${tableId}`;
-                const qrCodeSrcUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(guestMenuUrl)}`;
 
                 return (
                   <div 
@@ -1003,9 +1116,14 @@ export default function OwnerCabinet() {
                     {/* Delete table */}
                     <button
                       id={`delete-table-${tableId}`}
-                      onClick={() => {
+                      onClick={async () => {
                         if (confirm(t('tables.delete_confirm'))) {
-                          deleteTable(tableId);
+                          try {
+                            await deleteTable(tableId);
+                          } catch (err) {
+                            console.error('Failed to delete table', err);
+                            window.alert(t('common.delete_error'));
+                          }
                         }
                       }}
                       className="absolute top-3 right-3 p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 bg-white shadow-sm"
@@ -1030,7 +1148,7 @@ export default function OwnerCabinet() {
                     {/* QR Code Frame */}
                     <div className="bg-stone-50 border border-stone-200/60 p-4 rounded-2xl shadow-inner mb-4 relative group">
                       <img
-                        src={qrCodeSrcUrl}
+                        src={qrDataUrls[tableId]}
                         alt={`QR Code Table ${tableId}`}
                         className="w-40 h-40 object-contain mx-auto"
                         loading="lazy"
@@ -1154,7 +1272,7 @@ export default function OwnerCabinet() {
                       id="dish-price-input"
                       type="number"
                       value={menuFormState.price}
-                      onChange={(e) => setMenuFormState(prev => ({ ...prev, price: Math.max(0, parseInt(e.target.value) || 0) }))}
+                      onChange={(e) => setMenuFormState(prev => ({ ...prev, price: Math.max(0, Math.round(Number(e.target.value) || 0)) }))}
                       className="bg-stone-50 border border-stone-200 text-sm rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                       min={0}
                       required
@@ -1377,7 +1495,6 @@ export default function OwnerCabinet() {
                     className="w-10 h-5 bg-stone-200 checked:bg-amber-600 rounded-full cursor-pointer appearance-none relative before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-0.5 before:left-0.5 checked:before:left-5.5 before:transition-all shadow-sm"
                   />
                 </div>
-              </form>
 
               {/* Form Footer */}
               <div className="p-5 border-t border-stone-200/60 bg-stone-50 flex gap-3">
@@ -1391,7 +1508,7 @@ export default function OwnerCabinet() {
                 </button>
                 <button
                   id="save-dish-submit-btn"
-                  onClick={handleSaveMenuItem}
+                  type="submit"
                   disabled={!menuFormState.nameUa || !menuFormState.nameEn || !menuFormState.nameHu}
                   className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:bg-stone-300 text-white font-extrabold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
                 >
@@ -1399,6 +1516,7 @@ export default function OwnerCabinet() {
                   {t('menu.save')}
                 </button>
               </div>
+              </form>
             </motion.div>
           </>
         )}

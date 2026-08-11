@@ -26,6 +26,7 @@ export default function CustomerMenu() {
     categories, 
     createOrder, 
     language, 
+    isLoading,
     t 
   } = useQRMenu();
 
@@ -150,7 +151,7 @@ export default function CustomerMenu() {
   };
 
   // Submit Order
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (totalCartItems === 0) return;
 
     // Use selectedTable if specified, otherwise default to generic order target
@@ -168,13 +169,31 @@ export default function CustomerMenu() {
       };
     });
 
-    const newId = createOrder(finalTable, orderItems, orderNotes);
-    setLastOrderId(newId);
-    setOrderSuccess(true);
-    setCart({});
-    setOrderNotes('');
-    setIsCartOpen(false);
+    try {
+      const newId = await createOrder(finalTable, orderItems, orderNotes);
+      setLastOrderId(newId);
+      setOrderSuccess(true);
+      setCart({});
+      setOrderNotes('');
+      setIsCartOpen(false);
+    } catch (err) {
+      console.error('Failed to place order', err);
+      // Simple, visible fallback until a toast system exists
+      window.alert(
+        language === 'ua' ? 'Не вдалося надіслати замовлення. Спробуйте ще раз.'
+        : language === 'hu' ? 'Nem sikerült elküldeni a rendelést. Próbálja újra.'
+        : 'Failed to send order. Please try again.'
+      );
+    }
   };
+
+  if (isLoading && menuItems.length === 0) {
+    return (
+      <div className="w-full max-w-md mx-auto bg-stone-50 min-h-screen flex items-center justify-center text-stone-400 text-sm font-semibold">
+        {t('common.loading')}
+      </div>
+    );
+  }
 
   return (
     <div id="customer-menu-container" className="w-full max-w-md mx-auto bg-stone-50 min-h-screen shadow-lg flex flex-col relative text-stone-800 pb-20">
@@ -719,7 +738,7 @@ export default function CustomerMenu() {
                 {t('cart.success_msg')}
               </p>
               <div className="bg-stone-50 px-4 py-2 rounded-lg border border-stone-100 text-[11px] text-stone-500 font-semibold mb-5 uppercase tracking-wider">
-                ID: {lastOrderId}
+                ID: {lastOrderId.slice(0, 8).toUpperCase()}
               </div>
               <button
                 id="success-ok-btn"

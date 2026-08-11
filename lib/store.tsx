@@ -1,8 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { supabase } from './supabase/client';
 
-// Types definition
+// ============================================================
+// Public types (semantics kept stable so components barely change)
+// ============================================================
+
 export interface MenuItem {
   id: string;
   nameUa: string;
@@ -15,7 +19,7 @@ export interface MenuItem {
   ingredientsEn: string;
   ingredientsHu: string;
   price: number;
-  category: string; // matches Category.id
+  category: string; // Category.id (uuid) or '' when uncategorized
   image: string;
   isAvailable: boolean;
 }
@@ -25,7 +29,7 @@ export interface Category {
   nameUa: string;
   nameEn: string;
   nameHu: string;
-  icon: string; // Emoji or Lucide icon key
+  icon: string;
 }
 
 export interface OrderItem {
@@ -37,13 +41,15 @@ export interface OrderItem {
   price: number;
 }
 
+export type OrderStatus = 'new' | 'preparing' | 'delivered' | 'completed' | 'cancelled';
+
 export interface Order {
   id: string;
-  tableId: string;
+  tableId: string; // table LABEL for display (e.g. '3', 'VIP-1'); '' if none
   items: OrderItem[];
   totalPrice: number;
-  status: 'new' | 'preparing' | 'delivered' | 'completed' | 'cancelled';
-  createdAt: string; // ISO String
+  status: OrderStatus;
+  createdAt: string; // ISO
   notes?: string;
 }
 
@@ -51,154 +57,162 @@ interface QRMenuContextType {
   menuItems: MenuItem[];
   categories: Category[];
   orders: Order[];
-  tables: string[];
+  tables: string[]; // table labels
   language: 'ua' | 'en' | 'hu';
   setLanguage: (lang: 'ua' | 'en' | 'hu') => void;
-  addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
-  updateMenuItem: (id: string, item: Partial<MenuItem>) => void;
-  deleteMenuItem: (id: string) => void;
-  addCategory: (category: Omit<Category, 'id'>) => void;
-  updateCategory: (id: string, category: Partial<Category>) => void;
-  deleteCategory: (id: string) => void;
-  createOrder: (tableId: string, items: OrderItem[], notes?: string) => string;
-  updateOrderStatus: (id: string, status: Order['status']) => void;
-  deleteOrder: (id: string) => void;
-  addTable: (tableId: string) => void;
-  deleteTable: (tableId: string) => void;
+  // Owner auth (Supabase)
+  isOwner: boolean;
+  ownerEmail: string | null;
+  isLoading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signOut: () => Promise<void>;
+  // Mutations (all async; throw on failure)
+  addMenuItem: (item: Omit<MenuItem, 'id'>) => Promise<void>;
+  updateMenuItem: (id: string, item: Partial<MenuItem>) => Promise<void>;
+  deleteMenuItem: (id: string) => Promise<void>;
+  addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
+  updateCategory: (id: string, category: Partial<Category>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
+  createOrder: (tableId: string, items: OrderItem[], notes?: string) => Promise<string>;
+  updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
+  addTable: (label: string) => Promise<void>;
+  deleteTable: (label: string) => Promise<void>;
   t: (key: string) => string;
 }
 
 const QRMenuContext = createContext<QRMenuContextType | undefined>(undefined);
 
-// Initial Categories
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-pizza', nameUa: 'Піца', nameEn: 'Pizza', nameHu: 'Pizza', icon: '🍕' },
-  { id: 'cat-burgers', nameUa: 'Бургери', nameEn: 'Burgers', nameHu: 'Burgerek', icon: '🍔' },
-  { id: 'cat-soups', nameUa: 'Супи та Салати', nameEn: 'Soups & Salads', nameHu: 'Levesek és Saláták', icon: '🥗' },
-  { id: 'cat-desserts', nameUa: 'Десерти', nameEn: 'Desserts', nameHu: 'Desszertek', icon: '🍰' },
-  { id: 'cat-drinks', nameUa: 'Напої', nameEn: 'Drinks', nameHu: 'Italok', icon: '🥤' },
-];
+// ============================================================
+// DB row types + mappers (snake_case <-> camelCase)
+// ============================================================
 
-// Initial Menu Items with high-quality Food photos
-const DEFAULT_MENU_ITEMS: MenuItem[] = [
-  {
-    id: 'dish-1',
-    nameUa: 'Піца Маргарита',
-    nameEn: 'Pizza Margherita',
-    nameHu: 'Pizza Margherita',
-    descriptionUa: 'Класична італійська піца зі стиглими томатами, ніжною моцарелою та свіжим зеленим базиліком.',
-    descriptionEn: 'Classic Italian pizza with ripe tomatoes, tender mozzarella, and fresh green basil.',
-    descriptionHu: 'Klasszikus olasz pizza érett paradicsommal, lágy mozzarellával és friss zöld bazsalikommal.',
-    ingredientsUa: 'Томатний соус, сир моцарела, свіжий базилік, оливкова олія',
-    ingredientsEn: 'Tomato sauce, mozzarella cheese, fresh basil, olive oil',
-    ingredientsHu: 'Paradicsomszósz, mozzarella sajt, friss bazsalikom, olívaolaj',
-    price: 195,
-    category: 'cat-pizza',
-    image: 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=500&q=80',
-    isAvailable: true,
-  },
-  {
-    id: 'dish-2',
-    nameUa: 'Бургер Фірмовий з беконом',
-    nameEn: 'Signature Bacon Burger',
-    nameHu: 'Különleges baconös burger',
-    descriptionUa: 'Соковита котлета зі 100% яловичини на грилі, сир чеддер, хрусткий підсмажений бекон, томати, солодкий маринований огірок та наш унікальний соус.',
-    descriptionEn: 'Juicy 100% grilled beef patty, cheddar cheese, crispy toasted bacon, tomatoes, sweet pickles, and our unique sauce.',
-    descriptionHu: 'Lédús, 100% grillezett marhahúspogácsa, cheddar sajt, ropogós sült bacon, paradicsom, édes csemegeuborka és egyedi szószunk.',
-    ingredientsUa: 'Булочка бріош, яловича котлета, сир чеддер, бекон, листя салату, томати, маринований огірок, фірмовий соус BBQ',
-    ingredientsEn: 'Brioche bun, beef patty, cheddar cheese, bacon, lettuce, tomatoes, pickles, signature BBQ sauce',
-    ingredientsHu: 'Brioche zsemle, marhahúspogácsa, cheddar sajt, bacon, saláta, paradicsom, savanyú uborka, különleges BBQ szósz',
-    price: 245,
-    category: 'cat-burgers',
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=500&q=80',
-    isAvailable: true,
-  },
-  {
-    id: 'dish-3',
-    nameUa: 'Салат Цезар з куркою',
-    nameEn: 'Caesar Salad with Chicken',
-    nameHu: 'Cézár saláta csirkehússal',
-    descriptionUa: 'Хрустке свіже листя ромену, соковите філе курячої грудки су-від гриль, витриманий пармезан, часникові пшеничні грінки та легендарний соус Цезар з анчоусами.',
-    descriptionEn: 'Crisp fresh romaine lettuce, juicy sous-vide grilled chicken breast, aged parmesan cheese, garlic wheat croutons, and legendary Caesar dressing with anthovies.',
-    descriptionHu: 'Ropogós, friss római saláta, lédús grillezett csirkemell filé, érlelt parmezán sajt, fokhagymás kruton és a legendás Cézár öntet szardellával.',
-    ingredientsUa: 'Салат ромен, куряче філе гриль, пармезан, пшеничні грінки, соус цезар, томати черрі',
-    ingredientsEn: 'Romaine lettuce, grilled chicken breast, parmesan, wheat croutons, caesar dressing, cherry tomatoes',
-    ingredientsHu: 'Római saláta, grillezett csirkemell, parmezán, kruton, cézár öntet, koktélparadicsom',
-    price: 180,
-    category: 'cat-soups',
-    image: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?auto=format&fit=crop&w=500&q=80',
-    isAvailable: true,
-  },
-  {
-    id: 'dish-4',
-    nameUa: 'Томатний крем-суп з базиліком',
-    nameEn: 'Tomato Cream Soup with Basil',
-    nameHu: 'Paradicsom krémleves bazsalikommal',
-    descriptionUa: 'Оксамитовий гарячий суп із запечених італійських томатів вершків, приправлений орегано та свіжим базиліковим песто, подається з хрусткими крутонами.',
-    descriptionEn: 'Velvety hot soup made of roasted Italian plum tomatoes, seasoned with oregano and fresh basil pesto, served with crispy croutons.',
-    descriptionHu: 'Bársonyos, meleg leves sült olasz paradicsomból és tejszínből, oregánóval és friss bazsalikom pesztóval ízesítve, ropogós krutonnal tálalva.',
-    ingredientsUa: 'Стиглі томати, вершки, часник, цибуля, базилік, оливкова олія, пшеничні грінки',
-    ingredientsEn: 'Ripe tomatoes, cream, garlic, onions, basil, olive oil, wheat croutons',
-    ingredientsHu: 'Érett paradicsom, tejszín, fokhagyma, hagyma, bazsalikom, olívaolaj, kruton',
-    price: 150,
-    category: 'cat-soups',
-    image: 'https://images.unsplash.com/photo-1547592165-e1d17fed6006?auto=format&fit=crop&w=500&q=80',
-    isAvailable: true,
-  },
-  {
-    id: 'dish-5',
-    nameUa: 'Чізкейк Нью-Йорк з малиною',
-    nameEn: 'New York Cheesecake with Raspberry',
-    nameHu: 'New York sajttorta málnával',
-    descriptionUa: 'Легендарний ніжний вершково-сирний торт на тонкому пісочному коржі, прикрашений ароматним натуральним малиновим соусом кулі.',
-    descriptionEn: 'Legendary delicate cream cheese cake on a thin shortbread crust, topped with fragrant natural raspberry coulis sauce.',
-    descriptionHu: 'Legendás, finom krémsajttorta vékony omlós tésztán, illatos természetes málnaöntettel a tetején.',
-    ingredientsUa: 'Вершковий сир, пісочне тісто, цукор, натуральні вершки, малина, лимонна цедра',
-    ingredientsEn: 'Cream cheese, shortbread crust, sugar, natural cream, raspberry, lemon zest',
-    ingredientsHu: 'Krémsajt, omlós tészta, cukor, tejszín, málna, citromhéj',
-    price: 110,
-    category: 'cat-desserts',
-    image: 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=500&q=80',
-    isAvailable: true,
-  },
-  {
-    id: 'dish-6',
-    nameUa: 'Капучино Класичний',
-    nameEn: 'Classic Cappuccino',
-    nameHu: 'Klasszikus cappuccino',
-    descriptionUa: 'Збалансований кавовий напій на основі подвійного еспресо зі свіжообсмаженої арабіки та ніжної пишної молочної піни.',
-    descriptionEn: 'Balanced coffee drink based on a double shot of freshly roasted Arabica espresso and delicate rich frothed milk.',
-    descriptionHu: 'Kiegyensúlyozott kávéital frissen pörkölt Arabica eszpresszó és finom, dús tejhab alapján.',
-    ingredientsUa: 'Кава арабіка, незбиране молоко',
-    ingredientsEn: 'Arabica coffee, whole milk',
-    ingredientsHu: 'Arabica kávé, teljes tej',
-    price: 65,
-    category: 'cat-drinks',
-    image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?auto=format&fit=crop&w=500&q=80',
-    isAvailable: true,
-  },
-  {
-    id: 'dish-7',
-    nameUa: 'Цитрусовий Лимонад',
-    nameEn: 'Citrus Lemonade',
-    nameHu: 'Citrusos limonádé',
-    descriptionUa: 'Освіжаючий авторський напій на основі натурального фрешу лимона, апельсина, грейпфрута та свіжого листя м\'яти.',
-    descriptionEn: 'Refreshing author\'s drink based on natural lemon, orange, grapefruit juices and fresh mint leaves.',
-    descriptionHu: 'Frissítő, házi készítésű ital friss citrom-, narancs- és grapefruitléből, valamint friss mentából.',
-    ingredientsUa: 'Лимонний фреш, апельсиновий сік, свіжа м\'ята, тростинний цукор, газована вода',
-    ingredientsEn: 'Lemon juice, orange juice, fresh mint, cane sugar, sparkling water',
-    ingredientsHu: 'Citromlé, narancslé, friss menta, nádcukor, szénsavas víz',
-    price: 85,
-    category: 'cat-drinks',
-    image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=500&q=80',
-    isAvailable: true,
+interface CategoryRow {
+  id: string;
+  name_ua: string;
+  name_en: string;
+  name_hu: string;
+  icon: string;
+}
+
+interface MenuItemRow {
+  id: string;
+  category_id: string | null;
+  name_ua: string;
+  name_en: string;
+  name_hu: string;
+  description_ua: string;
+  description_en: string;
+  description_hu: string;
+  ingredients_ua: string;
+  ingredients_en: string;
+  ingredients_hu: string;
+  price: number;
+  image: string;
+  is_available: boolean;
+}
+
+interface OrderItemRow {
+  id: string;
+  order_id: string;
+  menu_item_id: string | null;
+  name_ua: string;
+  name_en: string;
+  name_hu: string;
+  price: number;
+  quantity: number;
+}
+
+interface OrderRow {
+  id: string;
+  table_id: string | null;
+  status: OrderStatus;
+  notes: string | null;
+  total_price: number;
+  created_at: string;
+  order_items: OrderItemRow[];
+}
+
+const toCategory = (r: CategoryRow): Category => ({
+  id: r.id,
+  nameUa: r.name_ua,
+  nameEn: r.name_en,
+  nameHu: r.name_hu,
+  icon: r.icon,
+});
+
+const toMenuItem = (r: MenuItemRow): MenuItem => ({
+  id: r.id,
+  category: r.category_id ?? '',
+  nameUa: r.name_ua,
+  nameEn: r.name_en,
+  nameHu: r.name_hu,
+  descriptionUa: r.description_ua,
+  descriptionEn: r.description_en,
+  descriptionHu: r.description_hu,
+  ingredientsUa: r.ingredients_ua,
+  ingredientsEn: r.ingredients_en,
+  ingredientsHu: r.ingredients_hu,
+  price: r.price,
+  image: r.image,
+  isAvailable: r.is_available,
+});
+
+const toOrderItem = (r: OrderItemRow): OrderItem => ({
+  menuItemId: r.menu_item_id ?? '',
+  nameUa: r.name_ua,
+  nameEn: r.name_en,
+  nameHu: r.name_hu,
+  quantity: r.quantity,
+  price: r.price,
+});
+
+const toMenuItemPayload = (item: Omit<MenuItem, 'id'> | Partial<MenuItem>) => {
+  const p: Record<string, unknown> = {};
+  if ('nameUa' in item) p.name_ua = item.nameUa;
+  if ('nameEn' in item) p.name_en = item.nameEn;
+  if ('nameHu' in item) p.name_hu = item.nameHu;
+  if ('descriptionUa' in item) p.description_ua = item.descriptionUa;
+  if ('descriptionEn' in item) p.description_en = item.descriptionEn;
+  if ('descriptionHu' in item) p.description_hu = item.descriptionHu;
+  if ('ingredientsUa' in item) p.ingredients_ua = item.ingredientsUa;
+  if ('ingredientsEn' in item) p.ingredients_en = item.ingredientsEn;
+  if ('ingredientsHu' in item) p.ingredients_hu = item.ingredientsHu;
+  if ('price' in item) p.price = item.price;
+  if ('category' in item) p.category_id = item.category || null;
+  if ('image' in item) p.image = item.image;
+  if ('isAvailable' in item) p.is_available = item.isAvailable;
+  return p;
+};
+
+const toCategoryPayload = (c: Omit<Category, 'id'> | Partial<Category>) => {
+  const p: Record<string, unknown> = {};
+  if ('nameUa' in c) p.name_ua = c.nameUa;
+  if ('nameEn' in c) p.name_en = c.nameEn;
+  if ('nameHu' in c) p.name_hu = c.nameHu;
+  if ('icon' in c) p.icon = c.icon;
+  return p;
+};
+
+const sortTableLabels = (labels: string[]) =>
+  [...labels].sort((a, b) => {
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return a.localeCompare(b);
+  });
+
+const newId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
   }
-];
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
 
-// Initial Tables
-const DEFAULT_TABLES = ['1', '2', '3', '4', '5'];
+// ============================================================
+// Translations
+// ============================================================
 
-// Dictionary for internationalization
 const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'app.name': { ua: 'QR-Меню Кафе', en: 'QR Cafe Menu', hu: 'QR Kávézó Menü' },
   'app.owner_btn': { ua: 'Кабінет власника', en: 'Owner Cabinet', hu: 'Tulajdonosi kabinet' },
@@ -219,15 +233,15 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'cart.checkout_btn': { ua: 'Надіслати замовлення до кухні', en: 'Send Order to Kitchen', hu: 'Rendelés elküldése a konyhára' },
   'cart.total': { ua: 'Всього до сплати:', en: 'Total:', hu: 'Összesen fizetendő:' },
   'cart.success_msg': { ua: 'Замовлення успішно відправлено! Наші кухарі вже чаклують над ним.', en: 'Order sent successfully! Our chefs are already cooking it.', hu: 'A rendelés sikeresen elküldve! A szakácsaink már készítik.' },
-  'cart.no_payment_notice': { ua: 'Оплата здійснюється офіціанту при отриманні рахунку.', en: 'Payment is made directly to the waiter upon receiving the bill.', hu: 'A fizetés a pincérnél történik a számla kézhezvételekor.' },
-  
+  'cart.no_payment_notice': { ua: 'Оплата здійснюється офіціанту при отриманні рахунку.', en: 'Payment is made directly to the waiter upon receiving the bill.', hu: 'A fizetés a pincérnél történik a számla kézhezvételkor.' },
+
   // Owner Cabinet Login
   'login.title': { ua: 'Вхід до кабінету власника', en: 'Owner Cabinet Login', hu: 'Belépés a tulajdonosi kabinetbe' },
-  'login.password': { ua: 'Введіть пароль доступу:', en: 'Enter Access Password:', hu: 'Adja meg a hozzáférési jelszót:' },
+  'login.email': { ua: 'Email', en: 'Email', hu: 'E-mail' },
+  'login.password': { ua: 'Пароль', en: 'Password', hu: 'Jelszó' },
   'login.submit': { ua: 'Увійти', en: 'Log In', hu: 'Belépés' },
-  'login.invalid': { ua: 'Невірний пароль! Спробуйте ще раз.', en: 'Invalid password! Please try again.', hu: 'Helytelen jelszó! Próbálja újra.' },
-  'login.default_notice': { ua: 'Пароль за замовчуванням: admin123', en: 'Default password is: admin123', hu: 'Alapértelmezett jelszó: admin123' },
-  
+  'login.invalid': { ua: 'Невірний email або пароль. Спробуйте ще раз.', en: 'Invalid email or password. Please try again.', hu: 'Hibás e-mail vagy jelszó. Próbálja újra.' },
+
   // Owner Cabinet Dashboard
   'dashboard.title': { ua: 'Панель керування', en: 'Management Panel', hu: 'Vezérlőpult' },
   'dashboard.logout': { ua: 'Вийти', en: 'Log Out', hu: 'Kijelentkezés' },
@@ -235,7 +249,7 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'dashboard.tab_menu': { ua: 'Меню', en: 'Menu', hu: 'Menü' },
   'dashboard.tab_categories': { ua: 'Категорії', en: 'Categories', hu: 'Kategóriák' },
   'dashboard.tab_tables': { ua: 'Столи та QR коди', en: 'Tables & QR Codes', hu: 'Asztalok és QR-kódok' },
-  
+
   // Dashboard Orders
   'orders.active_count': { ua: 'Активні замовлення', en: 'Active Orders', hu: 'Aktív rendelések' },
   'orders.no_orders': { ua: 'Немає активних замовлень наразі.', en: 'No active orders at the moment.', hu: 'Jelenleg nincs aktív rendelés.' },
@@ -254,6 +268,7 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'orders.notes': { ua: 'Коментар:', en: 'Note:', hu: 'Megjegyzés:' },
   'orders.sound_on': { ua: 'Звук увімкнено', en: 'Sound On', hu: 'Hang be' },
   'orders.sound_off': { ua: 'Звук вимкнено', en: 'Sound Off', hu: 'Hang ki' },
+  'orders.invalid_transition': { ua: 'Недопустимий перехід статусу', en: 'Invalid status transition', hu: 'Érvénytelen állapotváltás' },
 
   // Menu Management
   'menu.add_item': { ua: 'Додати страву', en: 'Add Dish', hu: 'Étel hozzáadása' },
@@ -280,6 +295,7 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'menu.cancel': { ua: 'Скасувати', en: 'Cancel', hu: 'Mégse' },
   'menu.delete_item_confirm': { ua: 'Ви впевнені, що хочете видалити цю страву?', en: 'Are you sure you want to delete this dish?', hu: 'Biztosan törölni szeretné ezt az ételt?' },
   'menu.use_preset_img': { ua: 'Обрати фото-шаблон', en: 'Select photo template', hu: 'Képsablon kiválasztása' },
+  'menu.price_invalid': { ua: 'Вкажіть коректну ціну (0 або більше)', en: 'Enter a valid price (0 or more)', hu: 'Adjon meg érvényes árat (0 vagy több)' },
 
   // Categories Management
   'cat.add_category': { ua: 'Додати категорію', en: 'Add Category', hu: 'Kategória hozzáadása' },
@@ -288,7 +304,7 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'cat.name_en': { ua: 'Назва категорії (ENG)', en: 'Category Name (EN)', hu: 'Kategória neve (EN)' },
   'cat.name_hu': { ua: 'Назва категорії (HUN)', en: 'Category Name (HU)', hu: 'Kategória neve (HU)' },
   'cat.icon': { ua: 'Іконка (Емодзі)', en: 'Icon (Emoji)', hu: 'Ikon (Emoji)' },
-  'cat.delete_confirm': { ua: 'Видалити категорію? Страви цієї категорії не зникнуть, але потребуватимуть оновлення категорії.', en: 'Delete category? Dishes in this category will remain but need category updating.', hu: 'Törli a kategóriát? Az ebbe a kategóriába tartozó ételek megmaradnak, de frissíteni kell a kategóriájukat.' },
+  'cat.delete_confirm': { ua: 'Видалити категорію? Страви цієї категорії залишаться без категорії.', en: 'Delete category? Dishes in it will become uncategorized.', hu: 'Törli a kategóriát? A benne lévő ételek kategória nélkül maradnak.' },
 
   // Table Generator & QR
   'tables.title': { ua: 'Генератор QR-кодів для столиків', en: 'QR Code Table Generator', hu: 'QR-kód generátor asztalokhoz' },
@@ -300,196 +316,302 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'tables.delete_confirm': { ua: 'Видалити цей столик?', en: 'Delete this table?', hu: 'Törli ezt az asztalt?' },
   'tables.download_qr': { ua: 'Завантажити QR-код', en: 'Download QR Code', hu: 'QR-kód letöltése' },
   'tables.instruction': { ua: 'Роздрукуйте ці QR-коди та розмістіть їх на відповідних столах у кафе. Гості зможуть миттєво перейти до меню, просто навівши камеру свого телефону.', en: 'Print these QR codes and place them on the respective tables. Guests can instantly view the menu by simply pointing their phone camera.', hu: 'Nyomtassa ki ezeket a QR-kódokat és helyezze el a megfelelő asztalokon. A vendégek azonnal megtekinthetik a menüt a telefon kamerájával.' },
+
+  // Common
+  'common.save_error': { ua: 'Не вдалося зберегти. Спробуйте ще раз.', en: 'Failed to save. Please try again.', hu: 'Nem sikerült menteni. Próbálja újra.' },
+  'common.delete_error': { ua: 'Не вдалося видалити. Спробуйте ще раз.', en: 'Failed to delete. Please try again.', hu: 'Nem sikerült törölni. Próbálja újra.' },
+  'common.loading': { ua: 'Завантаження...', en: 'Loading...', hu: 'Betöltés...' },
 };
 
+// ============================================================
+// Provider
+// ============================================================
+
 export function QRMenuProvider({ children }: { children: React.ReactNode }) {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('qr_menu_items');
-        return stored ? JSON.parse(stored) : DEFAULT_MENU_ITEMS;
-      } catch (e) {
-        console.error("Error reading qr_menu_items from localStorage", e);
-      }
-    }
-    return DEFAULT_MENU_ITEMS;
-  });
-
-  const [categories, setCategories] = useState<Category[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('qr_menu_categories');
-        return stored ? JSON.parse(stored) : DEFAULT_CATEGORIES;
-      } catch (e) {
-        console.error("Error reading qr_menu_categories from localStorage", e);
-      }
-    }
-    return DEFAULT_CATEGORIES;
-  });
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('qr_menu_orders');
-        return stored ? JSON.parse(stored) : [];
-      } catch (e) {
-        console.error("Error reading qr_menu_orders from localStorage", e);
-      }
-    }
-    return [];
-  });
-
-  const [tables, setTables] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('qr_menu_tables');
-        return stored ? JSON.parse(stored) : DEFAULT_TABLES;
-      } catch (e) {
-        console.error("Error reading qr_menu_tables from localStorage", e);
-      }
-    }
-    return DEFAULT_TABLES;
-  });
-
-  const [language, setLanguage] = useState<'ua' | 'en' | 'hu'>(() => {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tables, setTables] = useState<string[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [language, setLanguageState] = useState<'ua' | 'en' | 'hu'>(() => {
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('qr_menu_lang') as 'ua' | 'en' | 'hu';
-        return stored || 'ua';
-      } catch (e) {
-        console.error("Error reading qr_menu_lang from localStorage", e);
+        if (stored === 'ua' || stored === 'en' || stored === 'hu') return stored;
+      } catch {
+        /* ignore */
       }
     }
     return 'ua';
   });
+  const [isOwner, setIsOwner] = useState(false);
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Save changes to local storage
-  useEffect(() => {
-    localStorage.setItem('qr_menu_items', JSON.stringify(menuItems));
-  }, [menuItems]);
+  const tableUuidByLabel = useRef<Map<string, string>>(new Map());
 
-  useEffect(() => {
-    localStorage.setItem('qr_menu_categories', JSON.stringify(categories));
-  }, [categories]);
 
-  useEffect(() => {
-    localStorage.setItem('qr_menu_orders', JSON.stringify(orders));
-  }, [orders]);
+  const setLanguage = (lang: 'ua' | 'en' | 'hu') => {
+    setLanguageState(lang);
+    try {
+      localStorage.setItem('qr_menu_lang', lang);
+    } catch {
+      /* ignore */
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('qr_menu_tables', JSON.stringify(tables));
-  }, [tables]);
+  // ---- Menu data (public read) ----
+  const loadMenuData = async () => {
+    try {
+      const [catRes, itemRes, tabRes] = await Promise.all([
+        supabase.from('categories').select('*').order('position'),
+        supabase.from('menu_items').select('*').order('position'),
+        supabase.from('tables').select('*'),
+      ]);
+      if (catRes.error) throw catRes.error;
+      if (itemRes.error) throw itemRes.error;
+      if (tabRes.error) throw tabRes.error;
 
-  useEffect(() => {
-    localStorage.setItem('qr_menu_lang', language);
-  }, [language]);
+      setCategories(catRes.data.map(toCategory));
+      setMenuItems(itemRes.data.map(toMenuItem));
+      const labelRows = tabRes.data as { id: string; label: string }[];
+      tableUuidByLabel.current = new Map(labelRows.map((r) => [r.label, r.id]));
+      setTables(sortTableLabels(labelRows.map((r) => r.label)));
+    } catch (err) {
+      console.error('Failed to load menu data', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Sync data across tabs instantly in real-time
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'qr_menu_items' && e.newValue) {
-        setMenuItems(JSON.parse(e.newValue));
-      } else if (e.key === 'qr_menu_categories' && e.newValue) {
-        setCategories(JSON.parse(e.newValue));
-      } else if (e.key === 'qr_menu_orders' && e.newValue) {
-        setOrders(JSON.parse(e.newValue));
-      } else if (e.key === 'qr_menu_tables' && e.newValue) {
-        setTables(JSON.parse(e.newValue));
-      } else if (e.key === 'qr_menu_lang' && e.newValue) {
-        setLanguage(e.newValue as 'ua' | 'en' | 'hu');
+  // ---- Orders (owner only; realtime) ----
+  const loadOrders = async () => {
+    // Tables may not have loaded yet (e.g. session restored before menu fetch);
+    // build the label map on demand so order table labels resolve correctly.
+    if (tableUuidByLabel.current.size === 0) {
+      const { data: tabRows, error: tabErr } = await supabase.from('tables').select('*');
+      if (tabErr) {
+        console.error('Failed to load tables', tabErr);
+      } else {
+        const rows = tabRows as { id: string; label: string }[];
+        tableUuidByLabel.current = new Map(rows.map((r) => [r.label, r.id]));
       }
-    };
+    }
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Failed to load orders', error);
+      return;
+    }
+    // Reverse the label->uuid map so order rows (which store table_id as uuid)
+    // can be displayed with their label.
+    const labelByUuid = new Map(
+      Array.from(tableUuidByLabel.current.entries()).map(([label, uuid]) => [uuid, label])
+    );
+    setOrders(
+      (data as OrderRow[]).map((row) => ({
+        id: row.id,
+        tableId: (row.table_id && labelByUuid.get(row.table_id)) ?? '',
+        items: (row.order_items ?? []).map(toOrderItem),
+        totalPrice: row.total_price,
+        status: row.status,
+        createdAt: row.created_at,
+        notes: row.notes ?? undefined,
+      }))
+    );
+  };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+  useEffect(() => {
+    // Async data fetch — all setState calls happen after awaits inside
+    // loadMenuData, so this is a standard fetch-on-mount effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadMenuData();
   }, []);
 
-  // Translation helper function
+  // Auth state drives order visibility
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        const user = data.session?.user ?? null;
+        setIsOwner(!!user);
+        setOwnerEmail(user?.email ?? null);
+        if (user) loadOrders();
+      })
+      .catch((err) => console.error('Failed to read session', err));
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+      setIsOwner(!!user);
+      setOwnerEmail(user?.email ?? null);
+      if (user) {
+        loadOrders();
+      } else {
+        setOrders([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Realtime: refetch orders whenever they change (owner view)
+  useEffect(() => {
+    if (!isOwner) return;
+    const channel = supabase
+      .channel('orders-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => loadOrders())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_items' }, () => loadOrders())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isOwner]);
+
+  // ---- Auth ----
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error ? error.message : null };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // ---- Menu item mutations ----
+  const addMenuItem = async (item: Omit<MenuItem, 'id'>) => {
+    const { data, error } = await supabase
+      .from('menu_items')
+      .insert(toMenuItemPayload(item))
+      .select()
+      .single();
+    if (error) throw error;
+    setMenuItems((prev) => [...prev, toMenuItem(data as MenuItemRow)]);
+  };
+
+  const updateMenuItem = async (id: string, item: Partial<MenuItem>) => {
+    const { error } = await supabase.from('menu_items').update(toMenuItemPayload(item)).eq('id', id);
+    if (error) throw error;
+    setMenuItems((prev) => prev.map((m) => (m.id === id ? { ...m, ...item } : m)));
+  };
+
+  const deleteMenuItem = async (id: string) => {
+    const { error } = await supabase.from('menu_items').delete().eq('id', id);
+    if (error) throw error;
+    setMenuItems((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  // ---- Category mutations ----
+  const addCategory = async (category: Omit<Category, 'id'>) => {
+    const { data, error } = await supabase
+      .from('categories')
+      .insert(toCategoryPayload(category))
+      .select()
+      .single();
+    if (error) throw error;
+    setCategories((prev) => [...prev, toCategory(data as CategoryRow)]);
+  };
+
+  const updateCategory = async (id: string, category: Partial<Category>) => {
+    const { error } = await supabase
+      .from('categories')
+      .update(toCategoryPayload(category))
+      .eq('id', id);
+    if (error) throw error;
+    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, ...category } : c)));
+  };
+
+  const deleteCategory = async (id: string) => {
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) throw error;
+    setCategories((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  // ---- Orders ----
+  const createOrder = async (tableId: string, items: OrderItem[], notes?: string): Promise<string> => {
+    const orderId = newId();
+    const totalPrice = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const tableUuid = tableUuidByLabel.current.get(tableId) ?? null;
+
+    const { error: orderError } = await supabase.from('orders').insert({
+      id: orderId,
+      table_id: tableUuid,
+      status: 'new',
+      notes: notes?.trim() ? notes : null,
+      total_price: totalPrice,
+    });
+    if (orderError) throw orderError;
+
+    const { error: itemsError } = await supabase.from('order_items').insert(
+      items.map((i) => ({
+        order_id: orderId,
+        menu_item_id: i.menuItemId || null,
+        name_ua: i.nameUa,
+        name_en: i.nameEn,
+        name_hu: i.nameHu,
+        price: i.price,
+        quantity: i.quantity,
+      }))
+    );
+    if (itemsError) throw itemsError;
+
+    setOrders((prev) => [
+      {
+        id: orderId,
+        tableId,
+        items,
+        totalPrice,
+        status: 'new',
+        createdAt: new Date().toISOString(),
+        notes: notes?.trim() ? notes : undefined,
+      },
+      ...prev,
+    ]);
+    return orderId;
+  };
+
+  const updateOrderStatus = async (id: string, status: OrderStatus) => {
+    const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+    if (error) throw error;
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+  };
+
+  const deleteOrder = async (id: string) => {
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) throw error;
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  };
+
+  // ---- Tables ----
+  const addTable = async (label: string) => {
+    const clean = label.trim();
+    if (!clean || tables.includes(clean)) return;
+    const { data, error } = await supabase
+      .from('tables')
+      .insert({ label: clean })
+      .select()
+      .single();
+    if (error) throw error;
+    const row = data as { id: string; label: string };
+    tableUuidByLabel.current.set(row.label, row.id);
+    setTables((prev) => sortTableLabels([...prev, row.label]));
+  };
+
+  const deleteTable = async (label: string) => {
+    const { error } = await supabase.from('tables').delete().eq('label', label);
+    if (error) throw error;
+    tableUuidByLabel.current.delete(label);
+    setTables((prev) => prev.filter((t) => t !== label));
+  };
+
+  // ---- Translation helper ----
   const t = (key: string): string => {
     const translation = TRANSLATIONS[key];
     if (!translation) return key;
     return translation[language] || translation['en'] || translation['ua'] || key;
-  };
-
-  // Menu items CRUD
-  const addMenuItem = (item: Omit<MenuItem, 'id'>) => {
-    const newItem: MenuItem = {
-      ...item,
-      id: `dish-${Date.now()}`,
-    };
-    setMenuItems((prev) => [...prev, newItem]);
-  };
-
-  const updateMenuItem = (id: string, item: Partial<MenuItem>) => {
-    setMenuItems((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, ...item } : m))
-    );
-  };
-
-  const deleteMenuItem = (id: string) => {
-    setMenuItems((prev) => prev.filter((m) => m.id !== id));
-  };
-
-  // Categories CRUD
-  const addCategory = (category: Omit<Category, 'id'>) => {
-    const newCategory: Category = {
-      ...category,
-      id: `cat-${Date.now()}`,
-    };
-    setCategories((prev) => [...prev, newCategory]);
-  };
-
-  const updateCategory = (id: string, category: Partial<Category>) => {
-    setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...category } : c))
-    );
-  };
-
-  const deleteCategory = (id: string) => {
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-  };
-
-  // Orders CRUD
-  const createOrder = (tableId: string, items: OrderItem[], notes?: string) => {
-    const newOrderId = `order-${Date.now()}`;
-    const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const newOrder: Order = {
-      id: newOrderId,
-      tableId,
-      items,
-      totalPrice,
-      status: 'new',
-      createdAt: new Date().toISOString(),
-      notes,
-    };
-    setOrders((prev) => [newOrder, ...prev]);
-    return newOrderId;
-  };
-
-  const updateOrderStatus = (id: string, status: Order['status']) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status } : o))
-    );
-  };
-
-  const deleteOrder = (id: string) => {
-    setOrders((prev) => prev.filter((o) => o.id !== id));
-  };
-
-  // Tables
-  const addTable = (tableId: string) => {
-    if (!tableId || tables.includes(tableId)) return;
-    setTables((prev) => [...prev, tableId].sort((a, b) => {
-      // Sort numerically if possible, otherwise alphabetically
-      const numA = parseInt(a);
-      const numB = parseInt(b);
-      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-      return a.localeCompare(b);
-    }));
-  };
-
-  const deleteTable = (tableId: string) => {
-    setTables((prev) => prev.filter((t) => t !== tableId));
   };
 
   return (
@@ -501,6 +623,11 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
         tables,
         language,
         setLanguage,
+        isOwner,
+        ownerEmail,
+        isLoading,
+        signIn,
+        signOut,
         addMenuItem,
         updateMenuItem,
         deleteMenuItem,
