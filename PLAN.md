@@ -49,12 +49,15 @@
 - [x] Налаштувати Vitest + React Testing Library + `npm test` script.
 - [x] Перші тести: store (CRUD, ціни, статуси), `t()` — 19 тестів зелених.
 
-### Етап 1 — Supabase (бекенд)
-- [ ] Створити проєкт Supabase (організація/акаунт власника).
-- [ ] Міграції: `categories`, `menu_items`, `tables`, `orders`, `order_items` (+ індекси).
-- [ ] RLS: публічне читання меню/категорій/столів; INSERT замовлень анонімно; керування — лише власник.
-- [ ] Supabase Auth: email + пароль (один акаунт власника).
-- [ ] Supabase Storage: bucket для фото страв (читання публічне, запис — власник).
+### Етап 1 — Supabase (бекенд) — ✅ ВИКОНАНО
+- [x] Створити проєкт Supabase (**QRMenu**, ref `qgdevkykhnjzdjpitnps`, eu-central-1, free).
+- [x] Міграції: `categories`, `menu_items`, `tables`, `orders`, `order_items` (+ індекси, enum статусів, тригер updated_at).
+- [x] RLS: публічне читання меню/категорій/столів; INSERT замовлень анонімно; керування — лише власник. Додатково: найменші привілеї anon (закрито TRUNCATE-дірку дефолтних грантів), security-адвайзер чистий.
+- [x] Supabase Auth: email + пароль — налаштовано за замовчуванням; створення акаунта власника — на Етапі 2 разом з екраном входу.
+- [x] Supabase Storage: bucket `dish-images` (public, 2MB, jpeg/png/webp), запис лише власник.
+- [x] Realtime: публікація таблиці `orders`.
+
+> Міграції у `supabase/migrations/` застосовано на віддалений проєкт (через MCP `apply_migration`); env-змінні у `.env.example`/`.env.local`.
 
 ### Етап 2 — Перенесення фронтенду
 - [ ] Замінити localStorage-стор на Supabase-клієнт (React Query або кастомні хуки).
