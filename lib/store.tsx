@@ -321,6 +321,49 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'common.save_error': { ua: 'Не вдалося зберегти. Спробуйте ще раз.', en: 'Failed to save. Please try again.', hu: 'Nem sikerült menteni. Próbálja újra.' },
   'common.delete_error': { ua: 'Не вдалося видалити. Спробуйте ще раз.', en: 'Failed to delete. Please try again.', hu: 'Nem sikerült törölni. Próbálja újra.' },
   'common.loading': { ua: 'Завантаження...', en: 'Loading...', hu: 'Betöltés...' },
+  'common.rights_reserved': { ua: 'Всі права захищено.', en: 'All rights reserved.', hu: 'Minden jog fenntartva.' },
+  'common.great': { ua: 'Чудово!', en: 'Awesome!', hu: 'Remek!' },
+  'common.general_table': { ua: 'Загальний', en: 'General', hu: 'Általános' },
+  'app.made_with': { ua: 'Зроблено з 💛 для кафе та ресторанів', en: 'Made with 💛 for Cafés & Restaurants', hu: 'Készült 💛-vel kávézóknak és éttermeknek' },
+
+  // Customer menu extras
+  'menu.more_details': { ua: 'Детальніше', en: 'Details', hu: 'Részletek' },
+  'menu.add': { ua: 'Додати', en: 'Add', hu: 'Hozzáad' },
+  'menu.decrease': { ua: 'Зменшити', en: 'Decrease', hu: 'Csökkent' },
+  'menu.confirm_qty': { ua: 'Підтвердити', en: 'Confirm', hu: 'Megerősít' },
+  'menu.unit': { ua: 'шт', en: 'pc', hu: 'db' },
+  'menu.welcome_hello': { ua: 'Вітаємо Вас в', en: 'Welcome to', hu: 'Üdvözöljük a' },
+  'menu.welcome_cafe': { ua: 'кафе "Світ кави"', en: '"Svit Kavy" Cafe', hu: '"Svit Kavy" Kávézóban' },
+  'menu.welcome_table': { ua: 'Ваш столик', en: 'Your table is', hu: 'Az Ön asztala' },
+  'menu.welcome_goodbye': { ua: 'Приємного відпочинку.', en: 'Have a nice rest.', hu: 'Kellemes pihenést kívánunk.' },
+  'cart.notes_placeholder': { ua: 'Наприклад: без цибулі, подвійний сир, лід у напій...', en: 'For example: no onion, extra cheese, ice in drink...', hu: 'Például: hagyma nélkül, dupla sajt, jég az italba...' },
+  'cart.send_error': { ua: 'Не вдалося надіслати замовлення. Спробуйте ще раз.', en: 'Failed to send order. Please try again.', hu: 'Nem sikerült elküldeni a rendelést. Próbálja újra.' },
+  'cart.thanks': { ua: 'Дякуємо за замовлення!', en: 'Thank you for your order!', hu: 'Köszönjük a rendelést!' },
+
+  // Owner cabinet extras
+  'dashboard.cash_revenue': { ua: 'Каса (Виконані)', en: 'Revenue (Completed)', hu: 'Bevétel (Teljesítve)' },
+  'dashboard.dish_count': { ua: 'Всього страв', en: 'Total Dishes', hu: 'Ételek száma' },
+  'dashboard.table_count': { ua: 'Діючі столи', en: 'Active Tables', hu: 'Aktív asztalok' },
+  'orders.grand_total': { ua: 'Загалом:', en: 'Total:', hu: 'Összesen:' },
+  'orders.delete_title': { ua: 'Видалити з бази', en: 'Delete from history', hu: 'Törlés az előzményekből' },
+  'orders.empty_hint': { ua: 'Нові замовлення від гостей з\'являтимуться тут одразу із приємним звуковим сигналом!', en: 'New guest orders will appear here instantly with a pleasant chime!', hu: 'Az új vendégrendelések azonnal megjelennek itt, kellemes csengőhanggal!' },
+  'menu.categories_title': { ua: 'Категорії меню', en: 'Menu Categories', hu: 'Menükategóriák' },
+  'menu.available_badge': { ua: 'Активна', en: 'Active', hu: 'Aktív' },
+  'menu.hidden_badge': { ua: 'Прихована', en: 'Hidden', hu: 'Rejtett' },
+  'menu.name_placeholder': { ua: 'Піца Пепероні', en: 'Pizza Pepperoni', hu: 'Pizza Pepperoni' },
+  'menu.desc_placeholder': { ua: 'Смачна класична піца з томатами...', en: 'Delicious classic pizza with tomatoes...', hu: 'Finom klasszikus pizza paradicsommal...' },
+  'menu.ingr_placeholder': { ua: 'томатний соус, моцарела, базилік', en: 'tomato sauce, mozzarella, basil', hu: 'paradicsomszósz, mozzarella, bazsalikom' },
+  'menu.availability_hint': { ua: 'Чи з\'являтиметься страва на екранах гостей', en: 'Whether the dish will appear on guest screens', hu: 'Megjelenjen-e az étel a vendégek képernyőjén' },
+  'menu.photo_custom': { ua: 'Власне фото', en: 'Custom Photo', hu: 'Saját kép' },
+  'menu.photo_preset': { ua: 'Шаблонне фото', en: 'Template Photo', hu: 'Képsablon' },
+  'menu.upload_error': { ua: 'Помилка при завантаженні зображення', en: 'Error uploading image', hu: 'Hiba a kép feltöltésekor' },
+  'tables.delete_title': { ua: 'Видалити столик', en: 'Delete table', hu: 'Asztal törlése' },
+  'cat.name_placeholder': { ua: 'Наприклад: Гарніри', en: 'e.g. Sides', hu: 'Pl. Köretek' },
+
+  // 404 page
+  'nf.title': { ua: '404 — Сторінку не знайдено', en: '404 — Page not found', hu: '404 — Az oldal nem található' },
+  'nf.text': { ua: 'Вибачте, але запитувана сторінка не існує або була переміщена.', en: 'Sorry, the page you requested does not exist or has been moved.', hu: 'Sajnáljuk, a kért oldal nem létezik vagy áthelyezték.' },
+  'nf.home': { ua: 'На головну', en: 'Go Home', hu: 'Kezdőlap' },
 };
 
 // ============================================================

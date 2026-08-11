@@ -155,7 +155,7 @@ export default function CustomerMenu() {
     if (totalCartItems === 0) return;
 
     // Use selectedTable if specified, otherwise default to generic order target
-    const finalTable = selectedTable || (language === 'ua' ? 'Загальний' : language === 'hu' ? 'Általános' : 'General');
+    const finalTable = selectedTable || t('common.general_table');
 
     const orderItems: OrderItem[] = Object.entries(cart).map(([itemId, quantity]) => {
       const item = menuItems.find((m) => m.id === itemId)!;
@@ -179,11 +179,7 @@ export default function CustomerMenu() {
     } catch (err) {
       console.error('Failed to place order', err);
       // Simple, visible fallback until a toast system exists
-      window.alert(
-        language === 'ua' ? 'Не вдалося надіслати замовлення. Спробуйте ще раз.'
-        : language === 'hu' ? 'Nem sikerült elküldeni a rendelést. Próbálja újra.'
-        : 'Failed to send order. Please try again.'
-      );
+      window.alert(t('cart.send_error'));
     }
   };
 
@@ -231,37 +227,13 @@ export default function CustomerMenu() {
           
           <div className="flex-1 min-w-0 pr-6 text-left">
             <p className="text-xs font-semibold text-stone-800 leading-relaxed">
-              {language === 'ua' ? (
+              {t('menu.welcome_hello')} <span className="font-extrabold text-amber-900 drop-shadow-sm">{t('menu.welcome_cafe')}</span>!{' '}
+              {selectedTable ? (
                 <>
-                  Вітаємо Вас в <span className="font-extrabold text-amber-900 drop-shadow-sm">кафе &quot;Світ кави&quot;</span>!{' '}
-                  {selectedTable ? (
-                    <>
-                      Ваш столик <span className="inline-block bg-amber-200/70 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-amber-300/40 font-sans shadow-sm">№{selectedTable}</span>.{' '}
-                    </>
-                  ) : null}
-                  Приємного відпочинку.
+                  {t('menu.welcome_table')} <span className="inline-block bg-amber-200/70 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-amber-300/40 font-sans shadow-sm">№{selectedTable}</span>.{' '}
                 </>
-              ) : language === 'hu' ? (
-                <>
-                  Üdvözöljük a <span className="font-extrabold text-amber-900 drop-shadow-sm">&quot;Svit Kavy&quot; Kávézóban</span>!{' '}
-                  {selectedTable ? (
-                    <>
-                      Az Ön asztala <span className="inline-block bg-amber-200/70 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-amber-300/40 font-sans shadow-sm">#{selectedTable}</span>.{' '}
-                    </>
-                  ) : null}
-                  Kellemes pihenést kívánunk.
-                </>
-              ) : (
-                <>
-                  Welcome to <span className="font-extrabold text-amber-900 drop-shadow-sm">&quot;Svit Kavy&quot; Cafe</span>!{' '}
-                  {selectedTable ? (
-                    <>
-                      Your table is <span className="inline-block bg-amber-200/70 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-amber-300/40 font-sans shadow-sm">#{selectedTable}</span>.{' '}
-                    </>
-                  ) : null}
-                  Have a nice rest.
-                </>
-              )}
+              ) : null}
+              {t('menu.welcome_goodbye')}
             </p>
           </div>
 
@@ -428,10 +400,10 @@ export default function CustomerMenu() {
                         type="button"
                         onClick={() => toggleExpand(dish.id)}
                         className="flex items-center gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50/40 active:bg-amber-100/40 border border-amber-500 text-xs font-bold px-3.5 h-10 rounded-xl transition-all"
-                        title={language === 'ua' ? 'Детальніше' : 'Details'}
+                        title={t('menu.more_details')}
                       >
                         {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                        <span>{language === 'ua' ? 'Детальніше' : 'Details'}</span>
+                        <span>{t('menu.more_details')}</span>
                       </button>
 
                       {dish.isAvailable ? (
@@ -471,7 +443,7 @@ export default function CustomerMenu() {
                                   type="button"
                                   onClick={() => setPendingQty(prev => prev + 1)}
                                   className="w-7 h-7 flex items-center justify-center text-stone-600 hover:text-amber-600 hover:bg-amber-50 active:bg-amber-100/50 rounded-full transition-all cursor-pointer"
-                                  title={language === 'ua' ? 'Додати' : 'Add'}
+                                  title={t('menu.add')}
                                 >
                                   <Plus size={14} className="stroke-[2.5]" />
                                 </button>
@@ -485,7 +457,7 @@ export default function CustomerMenu() {
                                   type="button"
                                   onClick={() => setPendingQty(prev => Math.max(0, prev - 1))}
                                   className="w-7 h-7 flex items-center justify-center text-stone-600 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100/50 rounded-full transition-all cursor-pointer"
-                                  title={language === 'ua' ? 'Зменшити' : 'Decrease'}
+                                  title={t('menu.decrease')}
                                 >
                                   <Minus size={14} className="stroke-[2.5]" />
                                 </button>
@@ -509,7 +481,7 @@ export default function CustomerMenu() {
                                     setActiveQtyDishId(null);
                                   }}
                                   className="w-7 h-7 flex items-center justify-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-all cursor-pointer shadow-sm hover:shadow active:scale-95"
-                                  title={language === 'ua' ? 'Підтвердити' : language === 'hu' ? 'Megerősít' : 'Confirm'}
+                                  title={t('menu.confirm_qty')}
                                 >
                                   <Check size={14} className="stroke-[3]" />
                                 </button>
@@ -641,7 +613,7 @@ export default function CustomerMenu() {
                           </div>
                           <div className="flex flex-col gap-0.5 min-w-0">
                             <span className="font-bold text-stone-900 text-sm truncate">{dishName}</span>
-                            <span className="text-stone-500 text-xs">{dish.price} ₴ / {language === 'ua' ? 'шт' : language === 'hu' ? 'db' : 'pc'}</span>
+                            <span className="text-stone-500 text-xs">{dish.price} ₴ / {t('menu.unit')}</span>
                           </div>
                         </div>
                         
@@ -680,7 +652,7 @@ export default function CustomerMenu() {
                     rows={2}
                     value={orderNotes}
                     onChange={(e) => setOrderNotes(e.target.value)}
-                    placeholder={language === 'ua' ? 'Наприклад: без цибулі, подвійний сир, лід у напій...' : language === 'hu' ? 'Például: hagyma nélkül, dupla sajt, jég az italba...' : 'For example: no onion, extra cheese, ice in drink...'}
+                    placeholder={t('cart.notes_placeholder')}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
                   />
                 </div>
@@ -732,7 +704,7 @@ export default function CustomerMenu() {
                 <Check size={36} className="stroke-[3]" />
               </div>
               <h4 className="font-extrabold text-stone-900 text-lg mb-2">
-                {language === 'ua' ? 'Дякуємо за замовлення!' : language === 'hu' ? 'Köszönjük a rendelést!' : 'Thank you for your order!'}
+                {t('cart.thanks')}
               </h4>
               <p className="text-stone-500 text-xs leading-relaxed mb-4">
                 {t('cart.success_msg')}
@@ -745,7 +717,7 @@ export default function CustomerMenu() {
                 onClick={() => setOrderSuccess(false)}
                 className="w-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-2.5 rounded-xl text-xs shadow transition-transform active:scale-95"
               >
-                {language === 'ua' ? 'Чудово!' : language === 'hu' ? 'Remek!' : 'Awesome!'}
+                {t('common.great')}
               </button>
             </motion.div>
           </motion.div>

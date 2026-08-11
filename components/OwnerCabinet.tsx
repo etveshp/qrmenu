@@ -201,7 +201,7 @@ export default function OwnerCabinet() {
       setMenuFormState(prev => ({ ...prev, image: pub.publicUrl }));
     } catch (err) {
       console.error('Error uploading image: ', err);
-      setUploadError(language === 'ua' ? 'Помилка при завантаженні зображення' : 'Error uploading image');
+      setUploadError(t('menu.upload_error'));
     } finally {
       setIsUploading(false);
     }
@@ -664,7 +664,7 @@ export default function OwnerCabinet() {
           </div>
           
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">Каса (Виконані)</span>
+            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.cash_revenue')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                 <DollarSign size={20} />
@@ -674,7 +674,7 @@ export default function OwnerCabinet() {
           </div>
 
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">Всього страв</span>
+            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.dish_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
                 <UtensilsCrossed size={20} />
@@ -684,7 +684,7 @@ export default function OwnerCabinet() {
           </div>
 
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">Діючі столи</span>
+            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.table_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                 <Users size={20} />
@@ -826,7 +826,7 @@ export default function OwnerCabinet() {
 
                     <div className="flex flex-col sm:flex-row md:flex-col justify-between items-end gap-3 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-stone-100 w-full md:w-48">
                       <div className="flex justify-between items-center w-full sm:w-32 md:w-full gap-4 pb-1">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wide">Загалом:</span>
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wide">{t('orders.grand_total')}</span>
                         <span className="text-base font-black text-stone-900">{order.totalPrice} ₴</span>
                       </div>
 
@@ -879,7 +879,7 @@ export default function OwnerCabinet() {
                             }
                           }}
                           className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 hover:border-rose-100 bg-white"
-                          title="Видалити з бази"
+                          title={t('orders.delete_title')}
                         >
                           <Trash2 size={14} />
                         </button>
@@ -892,7 +892,7 @@ export default function OwnerCabinet() {
               <div className="bg-white rounded-2xl border p-12 text-center flex flex-col items-center justify-center text-stone-400 shadow-sm">
                 <FileText size={40} className="text-stone-300 mb-3" />
                 <p className="font-semibold text-sm">{t('orders.no_orders')}</p>
-                <p className="text-xs text-stone-400 mt-1">{"Нові замовлення від гостей з'являтимуться тут одразу із приємним звуковим сигналом!"}</p>
+                <p className="text-xs text-stone-400 mt-1">{t('orders.empty_hint')}</p>
               </div>
             )}
           </div>
@@ -956,7 +956,7 @@ export default function OwnerCabinet() {
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/40' 
                             : 'bg-rose-50 text-rose-700 border border-rose-200/40'
                         }`}>
-                          {item.isAvailable ? 'Активна' : 'Прихована'}
+                          {item.isAvailable ? t('menu.available_badge') : t('menu.hidden_badge')}
                         </span>
 
                         <div className="flex gap-1.5">
@@ -998,7 +998,7 @@ export default function OwnerCabinet() {
           <div id="categories-editor" className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                Категорії меню
+                {t('menu.categories_title')}
               </h2>
               <button
                 id="add-new-cat-btn"
@@ -1127,7 +1127,7 @@ export default function OwnerCabinet() {
                         }
                       }}
                       className="absolute top-3 right-3 p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 bg-white shadow-sm"
-                      title="Видалити столик"
+                      title={t('tables.delete_title')}
                     >
                       <Trash2 size={12} />
                     </button>
@@ -1233,7 +1233,7 @@ export default function OwnerCabinet() {
                       type="text"
                       value={menuFormState.nameUa}
                       onChange={(e) => setMenuFormState(prev => ({ ...prev, nameUa: e.target.value }))}
-                      placeholder="Піца Пепероні"
+                      placeholder={t('menu.name_placeholder')}
                       className="bg-stone-50 border border-stone-200 text-sm rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                       required
                     />
@@ -1343,7 +1343,7 @@ export default function OwnerCabinet() {
                           </div>
                           <div className="text-left">
                             <span className="text-xs font-extrabold text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-2 py-0.5 inline-block mb-1">
-                              {menuFormState.image.startsWith('data:image/') ? (language === 'ua' ? 'Власне фото' : 'Custom Photo') : (language === 'ua' ? 'Шаблонне фото' : 'Template Photo')}
+                              {menuFormState.image.startsWith('data:image/') ? t('menu.photo_custom') : t('menu.photo_preset')}
                             </span>
                             <p className="text-[11px] text-stone-400 max-w-[200px] truncate">{menuFormState.image}</p>
                           </div>
@@ -1413,7 +1413,7 @@ export default function OwnerCabinet() {
                     rows={2}
                     value={menuFormState.descriptionUa}
                     onChange={(e) => setMenuFormState(prev => ({ ...prev, descriptionUa: e.target.value }))}
-                    placeholder="Смачна класична піца з томатами..."
+                    placeholder={t('menu.desc_placeholder')}
                     className="bg-stone-50 border border-stone-200 text-sm rounded-xl p-3 w-full focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
                     required
                   />
@@ -1451,7 +1451,7 @@ export default function OwnerCabinet() {
                     type="text"
                     value={menuFormState.ingredientsUa}
                     onChange={(e) => setMenuFormState(prev => ({ ...prev, ingredientsUa: e.target.value }))}
-                    placeholder="томатний соус, моцарела, базилік"
+                    placeholder={t('menu.ingr_placeholder')}
                     className="bg-stone-50 border border-stone-200 text-sm rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                     required
                   />
@@ -1485,7 +1485,7 @@ export default function OwnerCabinet() {
                 <div className="flex items-center justify-between p-3.5 bg-stone-50 border border-stone-200/50 rounded-xl">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-sm font-extrabold text-stone-800">{t('menu.available_label')}</span>
-                    <span className="text-xs text-stone-400">{"Чи з'являтиметься страва на екранах гостей"}</span>
+                    <span className="text-xs text-stone-400">{t('menu.availability_hint')}</span>
                   </div>
                   <input
                     id="dish-available-switch"
@@ -1604,7 +1604,7 @@ export default function OwnerCabinet() {
 
               <div className="px-5 pb-3 border-b border-stone-100 flex items-center justify-between">
                 <h3 className="font-extrabold text-stone-900 text-base">
-                  {editingCatId ? 'Редагувати категорію' : 'Додати нову категорію'}
+                  {editingCatId ? t('cat.edit_category') : t('cat.add_category')}
                 </h3>
                 <button
                   onClick={() => setIsCatFormOpen(false)}
@@ -1622,7 +1622,7 @@ export default function OwnerCabinet() {
                     type="text"
                     value={catFormState.nameUa}
                     onChange={(e) => setCatFormState(prev => ({ ...prev, nameUa: e.target.value }))}
-                    placeholder="Наприклад: Гарніри"
+                    placeholder={t('cat.name_placeholder')}
                     className="bg-stone-50 border border-stone-200 text-sm rounded-xl px-3.5 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                     required
                   />

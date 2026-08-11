@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Utensils, Sliders, Globe } from 'lucide-react';
 
 function MainAppContent() {
-  const { language, t } = useQRMenu();
+  const { t } = useQRMenu();
   const [view, setView] = useState<'guest' | 'owner'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -98,8 +98,8 @@ function MainAppContent() {
 
       {/* Footer info */}
       <footer id="app-footer" className="w-full bg-white border-t border-stone-200/50 py-4 px-6 text-center text-[11px] text-stone-400 font-medium">
-        <p>© 2026 {t('app.name')}. {language === 'ua' ? 'Всі права захищено.' : 'All rights reserved.'}</p>
-        <p className="mt-1 text-stone-300">Made with 💛 for Café & Restaurants</p>
+        <p>© 2026 {t('app.name')}. {t('common.rights_reserved')}</p>
+        <p className="mt-1 text-stone-300">{t('app.made_with')}</p>
       </footer>
     </div>
   );

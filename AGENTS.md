@@ -6,7 +6,7 @@ Client-side QR-menu web app for cafés: guest menu view, owner cabinet (dish/cat
 - Stack: Next.js 16.3 (`app/` router, all client components, Turbopack bundler), React 19.2, Tailwind CSS 4 (`@tailwindcss/postcss`), `motion` (framer-motion), `lucide-react`, `qrcode`, TypeScript 5.
 - Entry point: `app/page.tsx` — wraps the app in `QRMenuProvider` and toggles between `CustomerMenu` (guest) and `OwnerCabinet` (owner) views.
 - Package manager: `npm` (package-lock.json).
-- Tests: Vitest + React Testing Library (jsdom), config `vitest.config.mts`; store tests in `lib/store.test.tsx`.
+- Tests: Vitest + React Testing Library (jsdom), config `vitest.config.mts`. 26 tests: store (`lib/store.test.tsx`) + components (`components/*.test.tsx`) with a shared in-memory Supabase fake (`lib/__fixtures__/supabase-fake.ts`).
 - Backend: Supabase project **QRMenu** (ref `qgdevkykhnjzdjpitnps`, eu-central-1). Schema/RLS in `supabase/migrations/` (applied via MCP `apply_migration`). Publishable keys in `.env.example` / `.env.local`.
 - Git repo initialized; latest commit on `main`.
 
