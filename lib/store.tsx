@@ -64,6 +64,8 @@ interface QRMenuContextType {
   isOwner: boolean;
   ownerEmail: string | null;
   isLoading: boolean;
+  soundEnabled: boolean;
+  setSoundEnabled: (enabled: boolean) => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   changePassword: (newPassword: string) => Promise<{ error: string | null }>;
@@ -246,6 +248,13 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   // Owner Cabinet Dashboard
   'dashboard.title': { ua: 'Панель керування', en: 'Management Panel', hu: 'Vezérlőpult' },
   'dashboard.logout': { ua: 'Вийти', en: 'Log Out', hu: 'Kijelentkezés' },
+  'header.more': { ua: 'Більше', en: 'More', hu: 'Több' },
+  'header.profile': { ua: 'Профіль адміна', en: 'Admin Profile', hu: 'Admin profil' },
+  'profile.title': { ua: 'Профіль адміна', en: 'Admin Profile', hu: 'Admin profil' },
+  'profile.email': { ua: 'Акаунт', en: 'Account', hu: 'Fiók' },
+  'profile.back': { ua: 'Назад до панелі', en: 'Back to Panel', hu: 'Vissza a panelre' },
+  'profile.need_login': { ua: 'Увійдіть у кабінет власника, щоб керувати профілем.', en: 'Sign in to the owner cabinet to manage your profile.', hu: 'Jelentkezzen be a tulajdonosi kabinetbe a profil kezeléséhez.' },
+  'profile.go_login': { ua: 'Перейти до входу', en: 'Go to Sign In', hu: 'Tovább a bejelentkezéshez' },
   'dashboard.change_password': { ua: 'Змінити пароль', en: 'Change Password', hu: 'Jelszó módosítása' },
   'dashboard.new_password': { ua: 'Новий пароль', en: 'New Password', hu: 'Új jelszó' },
   'dashboard.confirm_password': { ua: 'Підтвердіть пароль', en: 'Confirm Password', hu: 'Jelszó megerősítése' },
@@ -397,6 +406,7 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
   const [isOwner, setIsOwner] = useState(false);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const tableUuidByLabel = useRef<Map<string, string>>(new Map());
 
@@ -682,6 +692,8 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
         isOwner,
         ownerEmail,
         isLoading,
+        soundEnabled,
+        setSoundEnabled,
         signIn,
         signOut,
         changePassword,

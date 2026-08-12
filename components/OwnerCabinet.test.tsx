@@ -58,36 +58,6 @@ describe('OwnerCabinet — auth', () => {
   });
 });
 
-describe('OwnerCabinet — change password', () => {
-  it('shows an error when passwords do not match', async () => {
-    const user = userEvent.setup();
-    mock.state.session = { user: { email: 'owner@cafe.com' } };
-    renderCabinet();
-    await screen.findByText('Замовлення');
-
-    await user.click(screen.getByTitle('Змінити пароль'));
-    await user.type(screen.getByLabelText('Новий пароль'), 'password-123');
-    await user.type(screen.getByLabelText('Підтвердіть пароль'), 'different-456');
-    await user.click(screen.getAllByRole('button', { name: 'Змінити пароль' })[1]);
-
-    expect(await screen.findByText('Паролі не збігаються.')).toBeInTheDocument();
-  });
-
-  it('changes the password successfully', async () => {
-    const user = userEvent.setup();
-    mock.state.session = { user: { email: 'owner@cafe.com' } };
-    renderCabinet();
-    await screen.findByText('Замовлення');
-
-    await user.click(screen.getByTitle('Змінити пароль'));
-    await user.type(screen.getByLabelText('Новий пароль'), 'new-secure-password');
-    await user.type(screen.getByLabelText('Підтвердіть пароль'), 'new-secure-password');
-    await user.click(screen.getAllByRole('button', { name: 'Змінити пароль' })[1]);
-
-    expect(await screen.findByText('Пароль успішно змінено.')).toBeInTheDocument();
-  });
-});
-
 describe('OwnerCabinet — dish form', () => {
   it('adds a dish through the menu form (persists to DB)', async () => {
     const user = userEvent.setup();

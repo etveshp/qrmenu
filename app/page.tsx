@@ -4,13 +4,15 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { QRMenuProvider, useQRMenu } from '../lib/store';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import ViewSwitcher from '../components/ViewSwitcher';
+import MoreMenu from '../components/MoreMenu';
+import AdminProfile from '../components/AdminProfile';
 import CustomerMenu from '../components/CustomerMenu';
 import OwnerCabinet from '../components/OwnerCabinet';
 import { motion, AnimatePresence } from 'motion/react';
 
 function MainAppContent() {
   const { t } = useQRMenu();
-  const [view, setView] = useState<'guest' | 'owner'>(() => {
+  const [view, setView] = useState<'guest' | 'owner' | 'profile'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('table')) {
@@ -36,9 +38,12 @@ function MainAppContent() {
 
         <div className="flex items-center gap-3">
           {/* Main View Toggle (same pattern as the language switcher, dark accent) */}
-          <ViewSwitcher view={view} onChange={setView} />
+          <ViewSwitcher view={view === 'profile' ? 'owner' : view} onChange={setView} />
 
           <LanguageSwitcher />
+
+          {/* More actions: sound, admin profile, sign out */}
+          <MoreMenu onOpenProfile={() => setView('profile')} />
         </div>
       </div>
 
@@ -56,7 +61,7 @@ function MainAppContent() {
             >
               <CustomerMenu />
             </motion.div>
-          ) : (
+          ) : view === 'owner' ? (
             <motion.div
               key="owner"
               initial={{ opacity: 0, x: 10 }}
@@ -66,6 +71,17 @@ function MainAppContent() {
               className="w-full"
             >
               <OwnerCabinet />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="profile"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              className="w-full"
+            >
+              <AdminProfile onBack={() => setView('owner')} />
             </motion.div>
           )}
         </AnimatePresence>
