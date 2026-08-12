@@ -678,7 +678,7 @@ export default function OwnerCabinet() {
             {newOrdersCount > 0 && (
               <span
                 id="orders-tab-badge"
-                className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-black bg-rose-500 text-white shadow-sm"
+                className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-black bg-white text-amber-600 shadow-sm"
               >
                 {newOrdersCount}
               </span>
