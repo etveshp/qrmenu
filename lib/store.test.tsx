@@ -10,6 +10,7 @@ import type { OrderItem } from './store';
 // created below (value imports are dynamic to avoid the hoisting trap).
 const mock = createSupabaseFake();
 vi.mock('./supabase/client', () => ({ supabase: mock.supabase }));
+vi.mock('qrcode', () => ({ default: { toDataURL: async () => 'data:image/png;base64,QUJD' } }));
 
 const { QRMenuProvider, useQRMenu } = await import('./store');
 
@@ -121,7 +122,7 @@ describe('menu data loading', () => {
       isAvailable: true,
     });
     // numeric sort of labels
-    expect(store.tables).toEqual(['3', '10']);
+    expect(store.tables.map((t) => t.label)).toEqual(['3', '10']);
     expect(store.isLoading).toBe(false);
   });
 });
@@ -200,7 +201,7 @@ describe('orders', () => {
   it('creates an order as a guest: uuid, computed total, items snapshot', async () => {
     mock.state.db.tables.push({ id: 't-3', label: '3' });
     renderStore();
-    await waitFor(() => expect(store.tables).toEqual(['3']));
+    await waitFor(() => expect(store.tables.map((t) => t.label)).toEqual(['3']));
 
     let id = '';
     await act(async () => {
@@ -366,8 +367,17 @@ describe('tables', () => {
     await act(async () => {
       await store.addTable('VIP-1');
     });
-    expect(store.tables).toEqual(['10', 'VIP-1']);
+    expect(store.tables.map((t) => t.label)).toEqual(['10', 'VIP-1']);
     expect(mock.state.db.tables).toHaveLength(2);
+  });
+
+  it('generates and stores a QR code for a new table', async () => {
+    renderStore();
+    await act(async () => {
+      await store.addTable('7');
+    });
+    const added = store.tables.find((t) => t.label === '7');
+    expect(added?.qrPath).toMatch(/^qr-.*\.png$/);
   });
 
   it('ignores duplicates and empty labels', async () => {
@@ -381,14 +391,14 @@ describe('tables', () => {
     await act(async () => {
       await store.addTable('   ');
     });
-    expect(store.tables).toEqual(['3']);
+    expect(store.tables.map((t) => t.label)).toEqual(['3']);
     expect(mock.state.db.tables).toHaveLength(1);
   });
 
   it('deletes a table', async () => {
     mock.state.db.tables.push({ id: 't-1', label: '3' });
     renderStore();
-    await waitFor(() => expect(store.tables).toEqual(['3']));
+    await waitFor(() => expect(store.tables.map((t) => t.label)).toEqual(['3']));
 
     await act(async () => {
       await store.deleteTable('3');

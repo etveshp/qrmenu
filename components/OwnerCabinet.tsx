@@ -27,7 +27,8 @@ import {
   ClipboardList,
   Utensils,
   FolderTree,
-  QrCode
+  QrCode,
+  RefreshCw
 } from 'lucide-react';
 
 // Preset Food Photo list
@@ -83,6 +84,7 @@ export default function OwnerCabinet() {
     deleteOrder,
     addTable,
     deleteTable,
+    regenerateTableQr,
     t
   } = useQRMenu();
 
@@ -245,32 +247,6 @@ export default function OwnerCabinet() {
   // Base URL used for QR codes (guest menu link)
   const baseOriginUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
-  // Locally generated QR data URLs per table (replaces external qrserver API)
-  const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
-
-  // Regenerate QR codes whenever tables change
-  useEffect(() => {
-    let cancelled = false;
-    const generate = async () => {
-      const entries: Record<string, string> = {};
-      for (const label of tables) {
-        try {
-          entries[label] = await QRCode.toDataURL(`${baseOriginUrl}/?table=${label}`, {
-            width: 400,
-            margin: 2,
-            color: { dark: '#1c1917', light: '#ffffff' },
-          });
-        } catch (e) {
-          console.error('QR generation failed for table', label, e);
-        }
-      }
-      if (!cancelled) setQrDataUrls(entries);
-    };
-    generate();
-    return () => {
-      cancelled = true;
-    };
-  }, [tables, baseOriginUrl]);
 
   // Swipe/drag-scroll for admin tabs
   const tabsScrollRef = useRef<HTMLDivElement>(null);
@@ -1034,23 +1010,44 @@ export default function OwnerCabinet() {
 
             {/* QR Codes Grid */}
             <div id="qr-codes-grid" className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-              {tables.map((tableId) => {
+              {tables.map((table) => {
+                const label = table.label;
                 // Point URL specifically with table parameter
-                const guestMenuUrl = `${baseOriginUrl}/?table=${tableId}`;
+                const guestMenuUrl = `${baseOriginUrl}/?table=${label}`;
+                const qrSrc = table.qrPath
+                  ? supabase.storage.from('qr-codes').getPublicUrl(table.qrPath).data.publicUrl
+                  : null;
 
                 return (
                   <div 
-                    key={tableId} 
-                    id={`table-qr-card-${tableId}`}
+                    key={table.id} 
+                    id={`table-qr-card-${label}`}
                     className="bg-white border-2 border-stone-200/60 rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between text-center relative overflow-hidden"
                   >
-                    {/* Delete table */}
+                    {/* Regenerate QR */}
                     <button
-                      id={`delete-table-${tableId}`}
+                      id={`regenerate-qr-btn-${label}`}
+                      onClick={async () => {
+                        try {
+                          await regenerateTableQr(table.id);
+                        } catch (err) {
+                          console.error('Failed to regenerate QR', err);
+                          window.alert(t('common.save_error'));
+                        }
+                      }}
+                      className="absolute top-3 left-3 p-1.5 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-stone-100 bg-white shadow-sm"
+                      title={t('tables.regenerate_qr')}
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+
+                    {/* Delete table (also removes the stored QR file) */}
+                    <button
+                      id={`delete-table-${label}`}
                       onClick={async () => {
                         if (confirm(t('tables.delete_confirm'))) {
                           try {
-                            await deleteTable(tableId);
+                            await deleteTable(label);
                           } catch (err) {
                             console.error('Failed to delete table', err);
                             window.alert(t('common.delete_error'));
@@ -1060,30 +1057,51 @@ export default function OwnerCabinet() {
                       className="absolute top-3 right-3 p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 bg-white shadow-sm"
                       title={t('tables.delete_title')}
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={14} />
                     </button>
 
                     {/* Flyer Content */}
                     <div className="flex flex-col items-center gap-2 mb-4 w-full">
                       <div className="w-12 h-12 bg-amber-600 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-md shadow-amber-200">
-                        {tableId}
+                        {label}
                       </div>
                       <h4 className="font-extrabold text-stone-900 text-sm uppercase tracking-wide mt-1">
                         {t('tables.print_title')}
                       </h4>
                       <p className="text-xs text-stone-400 font-semibold tracking-wide uppercase leading-none">
-                        Стіл №{tableId}
+                        Стіл №{label}
                       </p>
                     </div>
 
                     {/* QR Code Frame */}
                     <div className="bg-stone-50 border border-stone-200/60 p-4 rounded-2xl shadow-inner mb-4 relative group">
-                      <img
-                        src={qrDataUrls[tableId]}
-                        alt={`QR Code Table ${tableId}`}
-                        className="w-40 h-40 object-contain mx-auto"
-                        loading="lazy"
-                      />
+                      {qrSrc ? (
+                        <img
+                          src={qrSrc}
+                          alt={`QR Code Table ${label}`}
+                          className="w-40 h-40 object-contain mx-auto"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-40 h-40 flex flex-col items-center justify-center gap-2 text-stone-400">
+                          <QrCode size={36} />
+                          <button
+                            id={`generate-qr-btn-${label}`}
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await regenerateTableQr(table.id);
+                              } catch (err) {
+                                console.error('Failed to generate QR', err);
+                                window.alert(t('common.save_error'));
+                              }
+                            }}
+                            className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                          >
+                            {t('tables.generate_qr')}
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <p className="text-stone-500 text-xs italic mb-4 font-medium leading-normal max-w-[200px]">
@@ -1093,15 +1111,15 @@ export default function OwnerCabinet() {
                     {/* Simulation buttons */}
                     <div className="w-full flex flex-col gap-2 pt-2 border-t border-stone-100">
                       <button
-                        id={`download-qr-btn-${tableId}`}
-                        onClick={() => downloadQRCode(tableId)}
+                        id={`download-qr-btn-${label}`}
+                        onClick={() => downloadQRCode(label)}
                         className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 border border-amber-200/40 shadow-sm"
                       >
                         <Download size={13} />
                         {t('tables.download_qr')}
                       </button>
                       <button
-                        id={`simulate-scan-btn-${tableId}`}
+                        id={`simulate-scan-btn-${label}`}
                         onClick={() => window.open(guestMenuUrl, '_blank')}
                         className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 border border-stone-200/40"
                       >

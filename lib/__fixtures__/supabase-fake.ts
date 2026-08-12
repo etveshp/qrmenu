@@ -227,6 +227,7 @@ export function createSupabaseFake(): SupabaseFake {
       from: () => ({
         upload: async () => ({ error: null }),
         getPublicUrl: () => ({ data: { publicUrl: 'https://example.com/x.jpg' } }),
+        remove: async () => ({ error: null }),
       }),
     },
   };
