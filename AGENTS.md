@@ -39,5 +39,7 @@ Client-side QR-menu web app for cafés: guest menu view, owner cabinet (dish/cat
 
 ## Notes
 - Template leftovers removed during cleanup (README, layout metadata, package name, unused dependency, `metadata.json`, legacy `.eslintrc.json`, `bun.lock`, unused env vars).
-- Supabase access model: `anon` = guests (read menu, insert orders only — least privilege, TRUNCATE revoked), `authenticated` = single cafe owner (full control). Realtime published for `orders`; storage bucket `dish-images` is public, writes owner-only.
+- Supabase access model: `anon` = guests (read menu, insert orders only — least privilege, TRUNCATE revoked), `authenticated` = single cafe owner (full control). Realtime published for `orders`.
+- Storage: buckets `dish-images` (dish photos) and `qr-codes` (table QR PNGs) — both public (CDN serves by URL), writes owner-only, **no** public SELECT/listing policies. QR path is stored in `tables.qr_path`; deleting a table also removes its file.
+- Owner preferences (sound toggle) persist in the `settings` table (key `owner`).
 - Owner account: `etvesh.p@gmail.com` created via Supabase Auth (email pre-confirmed; temp password was handed out — change it).
