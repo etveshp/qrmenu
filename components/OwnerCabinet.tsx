@@ -1059,10 +1059,20 @@ export default function OwnerCabinet() {
                       <Trash2 size={13} />
                     </button>
 
-                    {/* Table badge */}
+                    {/* Table badge (font scales down for longer names) */}
                     <div className="flex flex-col items-center gap-1 shrink-0 w-16">
-                      <div className="w-10 h-10 bg-amber-600 text-white rounded-xl flex items-center justify-center font-black text-lg shadow-sm">
-                        {label.charAt(0).toUpperCase()}
+                      <div
+                        className={`w-10 h-10 bg-amber-600 text-white rounded-xl flex items-center justify-center font-black shadow-sm px-1 leading-none ${
+                          label.length <= 2
+                            ? 'text-lg'
+                            : label.length <= 4
+                              ? 'text-sm'
+                              : label.length <= 6
+                                ? 'text-xs'
+                                : 'text-[10px]'
+                        }`}
+                      >
+                        {label}
                       </div>
                       <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wide leading-tight text-center break-words">
                         {label}
