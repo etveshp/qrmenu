@@ -66,6 +66,7 @@ interface QRMenuContextType {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  changePassword: (newPassword: string) => Promise<{ error: string | null }>;
   // Mutations (all async; throw on failure)
   addMenuItem: (item: Omit<MenuItem, 'id'>) => Promise<void>;
   updateMenuItem: (id: string, item: Partial<MenuItem>) => Promise<void>;
@@ -245,6 +246,13 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   // Owner Cabinet Dashboard
   'dashboard.title': { ua: 'Панель керування', en: 'Management Panel', hu: 'Vezérlőpult' },
   'dashboard.logout': { ua: 'Вийти', en: 'Log Out', hu: 'Kijelentkezés' },
+  'dashboard.change_password': { ua: 'Змінити пароль', en: 'Change Password', hu: 'Jelszó módosítása' },
+  'dashboard.new_password': { ua: 'Новий пароль', en: 'New Password', hu: 'Új jelszó' },
+  'dashboard.confirm_password': { ua: 'Підтвердіть пароль', en: 'Confirm Password', hu: 'Jelszó megerősítése' },
+  'dashboard.password_changed': { ua: 'Пароль успішно змінено.', en: 'Password changed successfully.', hu: 'A jelszó sikeresen megváltoztatva.' },
+  'dashboard.passwords_dont_match': { ua: 'Паролі не збігаються.', en: 'Passwords do not match.', hu: 'A jelszavak nem egyeznek.' },
+  'dashboard.password_short': { ua: 'Пароль має бути не коротший за 6 символів.', en: 'Password must be at least 6 characters.', hu: 'A jelszónak legalább 6 karakter hosszúnak kell lennie.' },
+  'dashboard.password_change_error': { ua: 'Не вдалося змінити пароль. Спробуйте ще раз.', en: 'Failed to change password. Please try again.', hu: 'Nem sikerült módosítani a jelszót. Próbálja újra.' },
   'dashboard.tab_orders': { ua: 'Замовлення', en: 'Orders', hu: 'Rendelések' },
   'dashboard.tab_menu': { ua: 'Меню', en: 'Menu', hu: 'Menü' },
   'dashboard.tab_categories': { ua: 'Категорії', en: 'Categories', hu: 'Kategóriák' },
@@ -524,6 +532,11 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const changePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error ? error.message : null };
+  };
+
   // ---- Menu item mutations ----
   const addMenuItem = async (item: Omit<MenuItem, 'id'>) => {
     const { data, error } = await supabase
@@ -671,6 +684,7 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         signIn,
         signOut,
+        changePassword,
         addMenuItem,
         updateMenuItem,
         deleteMenuItem,
