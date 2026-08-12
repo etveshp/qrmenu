@@ -967,14 +967,8 @@ export default function OwnerCabinet() {
                       </span>
                       <div>
                         <h4 className="font-bold text-stone-900 text-sm">
-                          УКР: {cat.nameUa}
+                          {language === 'ua' ? cat.nameUa : language === 'hu' ? (cat.nameHu || cat.nameEn || cat.nameUa) : cat.nameEn}
                         </h4>
-                        <p className="text-xs text-stone-500 font-medium">
-                          ENG: {cat.nameEn}
-                        </p>
-                        <p className="text-xs text-stone-500 font-medium">
-                          HUN: {cat.nameHu || '—'}
-                        </p>
                       </div>
                     </div>
 
