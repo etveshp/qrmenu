@@ -1056,7 +1056,7 @@ export default function OwnerCabinet() {
                     <div className="flex flex-col justify-between gap-2 p-3 flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-extrabold text-stone-900 text-sm truncate">
-                          {label}
+                          {t('tables.table_label')} {label}
                         </span>
                         <div className="flex items-center gap-0.5 shrink-0">
                           <button
