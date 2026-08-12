@@ -20,7 +20,6 @@ import {
   ExternalLink,
   Download,
   Camera,
-  LogOut,
   Upload,
   Sliders,
   DollarSign,
@@ -28,8 +27,7 @@ import {
   ClipboardList,
   Utensils,
   FolderTree,
-  QrCode,
-  Settings
+  QrCode
 } from 'lucide-react';
 
 // Preset Food Photo list
@@ -75,7 +73,6 @@ export default function OwnerCabinet() {
     isLoading,
     soundEnabled,
     signIn,
-    signOut,
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
@@ -382,10 +379,6 @@ export default function OwnerCabinet() {
     }
   };
 
-  const handleLogout = () => {
-    signOut().catch((err) => console.error('Logout failed', err));
-  };
-
   const downloadQRCode = async (tableId: string) => {
     try {
       const guestMenuUrl = `${baseOriginUrl}/?table=${tableId}`;
@@ -610,26 +603,6 @@ export default function OwnerCabinet() {
   return (
     <div id="admin-panel-container" className="w-full max-w-4xl mx-auto bg-stone-50 min-h-screen text-stone-800 pb-10">
       
-      {/* Header */}
-      <header id="admin-header" className="bg-white border-b border-stone-200/60 sticky top-0 z-30 px-4 md:px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-amber-600 text-white rounded-xl flex items-center justify-center">
-            <Settings size={18} />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            id="admin-logout-btn"
-            onClick={handleLogout}
-            className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition-all flex items-center justify-center"
-            title={t('dashboard.logout')}
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-      </header>
-
       <div className="p-4 md:p-6 flex flex-col gap-6">
         
         {/* Stats Grid */}
