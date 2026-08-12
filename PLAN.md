@@ -81,6 +81,7 @@
 - [ ] Домен (опційно).
 - [ ] Smoke-тест продакшену (HTTP-рівень ✅): **Production live = `https://qrmenu-omega-azure.vercel.app`** — `/` і `/?table=3` → 200, JS-чанки віддаються, Supabase anon-читання меню працює (7 страв). Інтерактивна перевірка (кошик/кабінет) — користувачем у браузері.
   - ⚠️ URL `qrmenu-7ng3wex5u-…` — deployment-посилання під захистом (302→SSO); справжній alias — `qrmenu-omega-azure.vercel.app`. `qrmenu.vercel.app` — зайнятий чужим проєктом.
+- ✅ **Build-cache інцидент вирішено** (2026-08-12): Vercel збирав зі старого Turbopack-кешу (шрифти не оновлювались). Рішення: Deploy Hook на гілку `production` + `?buildCache=false` (або Redeploy → зняти «Use existing Build Cache»). Превентивно: `VERCEL_FORCE_NO_BUILD_CACHE=1` у env проєкту.
 
 ## Після релізу (окремі етапи)
 - [ ] Базова аналітика продажів (виручка за період, кількість замовлень, топ-страв).
