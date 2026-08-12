@@ -1,22 +1,20 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useQRMenu } from '../lib/store';
 import { motion } from 'motion/react';
 import { Utensils, Sliders } from 'lucide-react';
 
-export type AppView = 'guest' | 'owner';
-
 // Collapsed circle that expands into a vertical capsule — same pattern as the
-// language switcher, but in a dark (stone) accent instead of amber.
-export default function ViewSwitcher({
-  view,
-  onChange,
-}: {
-  view: AppView;
-  onChange: (v: AppView) => void;
-}) {
+// language switcher, but in a dark (stone) accent. Switches between the guest
+// menu (/) and the admin cabinet (/admin). Visible only for the owner.
+export default function ViewSwitcher() {
   const { t } = useQRMenu();
+  const router = useRouter();
+  const pathname = usePathname();
+  const isOwnerView = pathname?.startsWith('/admin') ?? false;
+
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -31,12 +29,17 @@ export default function ViewSwitcher({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const options: { key: AppView; icon: React.ReactNode; title: string }[] = [
+  const options: { key: 'guest' | 'owner'; icon: React.ReactNode; title: string }[] = [
     { key: 'guest', icon: <Utensils size={15} />, title: t('app.menu_btn') },
     { key: 'owner', icon: <Sliders size={15} />, title: t('app.owner_btn') },
   ];
 
-  const current = view === 'guest' ? options[0] : options[1];
+  const current = isOwnerView ? options[1] : options[0];
+
+  const navigate = (key: 'guest' | 'owner') => {
+    setIsOpen(false);
+    router.push(key === 'owner' ? '/admin' : '/');
+  };
 
   return (
     <div
@@ -69,17 +72,14 @@ export default function ViewSwitcher({
           // Expanded state: vertical capsule with both options
           <div id="view-expanded-list" className="flex flex-col items-center gap-1 w-full">
             {options.map((opt) => {
-              const isActive = view === opt.key;
+              const isActive = (opt.key === 'owner') === isOwnerView;
               return (
                 <button
                   key={opt.key}
                   id={`view-option-${opt.key}`}
                   type="button"
                   title={opt.title}
-                  onClick={() => {
-                    onChange(opt.key);
-                    setIsOpen(false);
-                  }}
+                  onClick={() => navigate(opt.key)}
                   className="relative w-8 h-8 flex items-center justify-center transition-colors duration-200 cursor-pointer rounded-full"
                 >
                   {isActive && (
