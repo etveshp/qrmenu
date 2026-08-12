@@ -29,7 +29,8 @@ import {
   Utensils,
   FolderTree,
   QrCode,
-  Settings
+  Settings,
+  KeyRound
 } from 'lucide-react';
 
 // Preset Food Photo list
@@ -75,6 +76,7 @@ export default function OwnerCabinet() {
     isLoading,
     signIn,
     signOut,
+    changePassword,
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
@@ -91,6 +93,12 @@ export default function OwnerCabinet() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<boolean>(false);
+
+  // Change-password modal state
+  const [isPwdModalOpen, setIsPwdModalOpen] = useState<boolean>(false);
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [pwdStatus, setPwdStatus] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   // Tabs: 'orders', 'menu', 'categories', 'tables'
   const [activeTab, setActiveTab] = useState<'orders' | 'menu' | 'categories' | 'tables'>('orders');
@@ -386,6 +394,36 @@ export default function OwnerCabinet() {
     signOut().catch((err) => console.error('Logout failed', err));
   };
 
+  // Change password (Supabase Auth updateUser)
+  const openChangePassword = () => {
+    setNewPassword('');
+    setConfirmPassword('');
+    setPwdStatus(null);
+    setIsPwdModalOpen(true);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdStatus(null);
+    if (newPassword.length < 6) {
+      setPwdStatus({ type: 'error', text: t('dashboard.password_short') });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwdStatus({ type: 'error', text: t('dashboard.passwords_dont_match') });
+      return;
+    }
+    const { error } = await changePassword(newPassword);
+    if (error) {
+      console.error('Change password failed', error);
+      setPwdStatus({ type: 'error', text: t('dashboard.password_change_error') });
+      return;
+    }
+    setPwdStatus({ type: 'success', text: t('dashboard.password_changed') });
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
   const downloadQRCode = async (tableId: string) => {
     try {
       const guestMenuUrl = `${baseOriginUrl}/?table=${tableId}`;
@@ -638,6 +676,15 @@ export default function OwnerCabinet() {
             {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
           
+          <button
+            id="change-password-btn"
+            onClick={openChangePassword}
+            className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all flex items-center justify-center"
+            title={t('dashboard.change_password')}
+          >
+            <KeyRound size={16} />
+          </button>
+
           <button
             id="admin-logout-btn"
             onClick={handleLogout}
@@ -1519,6 +1566,106 @@ export default function OwnerCabinet() {
               </form>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Change Password Modal */}
+      <AnimatePresence>
+        {isPwdModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl flex flex-col gap-4 text-stone-800"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-stone-900 flex items-center gap-2">
+                  <KeyRound size={18} className="text-amber-600" />
+                  {t('dashboard.change_password')}
+                </h3>
+                <button
+                  id="close-change-password-btn"
+                  type="button"
+                  onClick={() => setIsPwdModalOpen(false)}
+                  className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="new-password-field" className="text-xs font-bold text-stone-500">
+                    {t('dashboard.new_password')}
+                  </label>
+                  <input
+                    id="new-password-field"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className="w-full bg-stone-50 px-4 py-3 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="confirm-password-field" className="text-xs font-bold text-stone-500">
+                    {t('dashboard.confirm_password')}
+                  </label>
+                  <input
+                    id="confirm-password-field"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className="w-full bg-stone-50 px-4 py-3 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    required
+                    minLength={6}
+                  />
+                </div>
+
+                {pwdStatus && (
+                  <div
+                    id="change-password-status"
+                    className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ${
+                      pwdStatus.type === 'success'
+                        ? 'bg-emerald-50 border border-emerald-100 text-emerald-700'
+                        : 'bg-rose-50 border border-rose-100 text-rose-600'
+                    }`}
+                  >
+                    <AlertCircle size={14} />
+                    <span>{pwdStatus.text}</span>
+                  </div>
+                )}
+
+                <div className="flex gap-3 mt-1">
+                  <button
+                    id="cancel-change-password-btn"
+                    type="button"
+                    onClick={() => setIsPwdModalOpen(false)}
+                    className="flex-1 bg-white border border-stone-200 text-stone-700 font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all hover:bg-stone-50 active:scale-95"
+                  >
+                    {t('menu.cancel')}
+                  </button>
+                  <button
+                    id="submit-change-password-btn"
+                    type="submit"
+                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md active:scale-95"
+                  >
+                    {t('dashboard.change_password')}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -192,6 +192,12 @@ export function createSupabaseFake(): SupabaseFake {
         state.listeners.forEach((l) => l('SIGNED_OUT', null));
         return { error: null };
       },
+      updateUser: async ({ password }: { password: string }) => {
+        if (password === 'short') {
+          return { data: { user: null }, error: { message: 'Password should be at least 6 characters' } };
+        }
+        return { data: { user: { email: state.session?.user?.email ?? '' } }, error: null };
+      },
     },
     storage: {
       from: () => ({

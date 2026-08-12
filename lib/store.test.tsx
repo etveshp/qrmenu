@@ -313,6 +313,22 @@ describe('owner auth', () => {
     await waitFor(() => expect(store.isOwner).toBe(false));
     expect(store.orders).toHaveLength(0);
   });
+
+  it('changePassword: reports errors and succeeds for valid passwords', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+
+    let res: { error: string | null } | undefined;
+    await act(async () => {
+      res = await store.changePassword('short');
+    });
+    expect(res?.error).toBeTruthy();
+
+    await act(async () => {
+      res = await store.changePassword('new-secure-password');
+    });
+    expect(res?.error).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
