@@ -75,9 +75,12 @@
 ### Етап 4 — Деплой (у процесі)
 - [x] Репозиторій: GitHub `etveshp/qrmenu` — локальна історія запушена (`main`), `engines.node` закріплено.
 - [x] Фікс збірки на Vercel: прибрано `output: 'standalone'` (Turbopack не генерує `.nft.json` — крок Vercel падав).
-- [ ] Підключення Vercel + env-змінні (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+- [x] **Workflow preview-first**: Production Branch у Vercel = `production`; гілка `production` створена; перший прод-деплой запущено.
+  - push у `main` → **preview**; реліз → PR `main` → `production` (або `git push origin main:production`, якщо `production` не розійшлася).
+- [ ] Env-змінні у Vercel (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) — підтверджено: збірка пройшла, отже задані.
 - [ ] Домен (опційно).
-- [ ] Smoke-тест продакшену: гостьове меню → замовлення → кабінет → Realtime.
+- [ ] Smoke-тест продакшену (HTTP-рівень ✅): **Production live = `https://qrmenu-omega-azure.vercel.app`** — `/` і `/?table=3` → 200, JS-чанки віддаються, Supabase anon-читання меню працює (7 страв). Інтерактивна перевірка (кошик/кабінет) — користувачем у браузері.
+  - ⚠️ URL `qrmenu-7ng3wex5u-…` — deployment-посилання під захистом (302→SSO); справжній alias — `qrmenu-omega-azure.vercel.app`. `qrmenu.vercel.app` — зайнятий чужим проєктом.
 
 ## Після релізу (окремі етапи)
 - [ ] Базова аналітика продажів (виручка за період, кількість замовлень, топ-страв).

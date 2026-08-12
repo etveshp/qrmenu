@@ -48,7 +48,7 @@ export default function LanguageSwitcher() {
             id="lang-collapsed-btn"
             type="button"
             onClick={() => setIsOpen(true)}
-            className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center text-white text-[11px] font-black uppercase font-sans tracking-wide cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.35)]"
+            className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center text-white text-xs font-black uppercase font-sans tracking-wide cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.35)]"
           >
             {language === 'ua' ? 'UA' : language === 'hu' ? 'HU' : 'EN'}
           </button>
@@ -66,7 +66,7 @@ export default function LanguageSwitcher() {
                     setLanguage(lang);
                     setIsOpen(false);
                   }}
-                  className="relative w-8 h-8 flex items-center justify-center text-[10px] font-extrabold uppercase font-sans tracking-wide transition-colors duration-200 cursor-pointer rounded-full"
+                  className="relative w-8 h-8 flex items-center justify-center text-xs font-extrabold uppercase font-sans tracking-wide transition-colors duration-200 cursor-pointer rounded-full"
                 >
                   {/* Orange active indicator circle inside the capsule */}
                   {isActive && (
