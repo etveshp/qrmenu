@@ -858,19 +858,14 @@ export default function OwnerCabinet() {
         {/* Tab 2: Menu Items Editor */}
         {activeTab === 'menu' && (
           <div id="menu-items-editor" className="flex flex-col gap-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                Каталог страв кафе ({menuItems.length})
-              </h2>
-              <button
-                id="add-new-dish-btn"
-                onClick={openAddMenuForm}
-                className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-md transition-all active:scale-95"
-              >
-                <Plus size={14} />
-                {t('menu.add_item')}
-              </button>
-            </div>
+            <button
+              id="add-new-dish-btn"
+              onClick={openAddMenuForm}
+              className="w-full flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2.5 rounded-xl text-xs shadow-md transition-all active:scale-95"
+            >
+              <Plus size={14} />
+              {t('menu.add_item')}
+            </button>
 
             {/* Menu Items Grid */}
             <div id="admin-menu-grid" className="grid grid-cols-1 md:grid-cols-2 gap-4">
