@@ -604,6 +604,10 @@ export default function OwnerCabinet() {
     <div id="admin-panel-container" className="w-full max-w-4xl mx-auto bg-stone-50 min-h-screen text-stone-800 pb-10">
       
       <div className="p-4 md:p-6 flex flex-col gap-6">
+        {/* Panel title */}
+        <h1 id="admin-panel-title" className="text-lg font-extrabold text-stone-900 tracking-tight">
+          {t('dashboard.title')}
+        </h1>
         
         {/* Stats Grid */}
         <div id="admin-stats-bar" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
