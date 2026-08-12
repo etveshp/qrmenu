@@ -725,17 +725,6 @@ export default function OwnerCabinet() {
         {/* Tab 1: Orders Monitor */}
         {activeTab === 'orders' && (
           <div id="orders-monitor" className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                Монітор активності кухні
-              </h2>
-              {orders.length > 0 && (
-                <span className="text-xs bg-amber-100 text-amber-800 font-extrabold px-2.5 py-1 rounded-lg">
-                  {orders.length} замовлень в базі
-                </span>
-              )}
-            </div>
-
             {orders.length > 0 ? (
               <div className="flex flex-col gap-4">
                 {orders.map((order) => (
