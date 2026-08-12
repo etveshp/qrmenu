@@ -30,8 +30,8 @@ export default function ViewSwitcher() {
   }, []);
 
   const options: { key: 'guest' | 'owner'; icon: React.ReactNode; title: string }[] = [
-    { key: 'guest', icon: <Utensils size={15} />, title: t('app.menu_btn') },
-    { key: 'owner', icon: <Sliders size={15} />, title: t('app.owner_btn') },
+    { key: 'guest', icon: <Utensils size={18} />, title: t('app.menu_btn') },
+    { key: 'owner', icon: <Sliders size={18} />, title: t('app.owner_btn') },
   ];
 
   const current = isOwnerView ? options[1] : options[0];
