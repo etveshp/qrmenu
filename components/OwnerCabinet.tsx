@@ -1022,7 +1022,7 @@ export default function OwnerCabinet() {
                   <div 
                     key={table.id} 
                     id={`table-qr-card-${label}`}
-                    className="bg-white border-2 border-stone-200/60 rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between text-center relative overflow-hidden"
+                    className="bg-white border border-stone-200 rounded-2xl p-3 shadow-sm flex items-center gap-3 relative"
                   >
                     {/* Regenerate QR */}
                     <button
@@ -1035,10 +1035,10 @@ export default function OwnerCabinet() {
                           window.alert(t('common.save_error'));
                         }
                       }}
-                      className="absolute top-3 left-3 p-1.5 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-stone-100 bg-white shadow-sm"
+                      className="absolute top-1.5 right-1.5 p-1 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
                       title={t('tables.regenerate_qr')}
                     >
-                      <RefreshCw size={14} />
+                      <RefreshCw size={13} />
                     </button>
 
                     {/* Delete table (also removes the stored QR file) */}
@@ -1054,37 +1054,34 @@ export default function OwnerCabinet() {
                           }
                         }
                       }}
-                      className="absolute top-3 right-3 p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 bg-white shadow-sm"
+                      className="absolute top-8 right-1.5 p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                       title={t('tables.delete_title')}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
 
-                    {/* Flyer Content */}
-                    <div className="flex flex-col items-center gap-2 mb-4 w-full">
-                      <div className="w-12 h-12 bg-amber-600 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-md shadow-amber-200">
+                    {/* Table badge */}
+                    <div className="flex flex-col items-center gap-1 shrink-0 w-14">
+                      <div className="w-10 h-10 bg-amber-600 text-white rounded-xl flex items-center justify-center font-black text-lg shadow-sm">
                         {label}
                       </div>
-                      <h4 className="font-extrabold text-stone-900 text-sm uppercase tracking-wide mt-1">
-                        {t('tables.print_title')}
-                      </h4>
-                      <p className="text-xs text-stone-400 font-semibold tracking-wide uppercase leading-none">
+                      <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wide whitespace-nowrap">
                         Стіл №{label}
-                      </p>
+                      </span>
                     </div>
 
-                    {/* QR Code Frame */}
-                    <div className="bg-stone-50 border border-stone-200/60 p-4 rounded-2xl shadow-inner mb-4 relative group">
+                    {/* QR Code */}
+                    <div className="bg-stone-50 border border-stone-200/60 p-1.5 rounded-xl shrink-0">
                       {qrSrc ? (
                         <img
                           src={qrSrc}
                           alt={`QR Code Table ${label}`}
-                          className="w-40 h-40 object-contain mx-auto"
+                          className="w-24 h-24 object-contain"
                           loading="lazy"
                         />
                       ) : (
-                        <div className="w-40 h-40 flex flex-col items-center justify-center gap-2 text-stone-400">
-                          <QrCode size={36} />
+                        <div className="w-24 h-24 flex flex-col items-center justify-center gap-1.5 text-stone-400">
+                          <QrCode size={22} />
                           <button
                             id={`generate-qr-btn-${label}`}
                             type="button"
@@ -1096,7 +1093,7 @@ export default function OwnerCabinet() {
                                 window.alert(t('common.save_error'));
                               }
                             }}
-                            className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                            className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2 py-1 rounded-md transition-all"
                           >
                             {t('tables.generate_qr')}
                           </button>
@@ -1104,26 +1101,22 @@ export default function OwnerCabinet() {
                       )}
                     </div>
 
-                    <p className="text-stone-500 text-xs italic mb-4 font-medium leading-normal max-w-[200px]">
-                      {t('tables.print_scan')}
-                    </p>
-
-                    {/* Simulation buttons */}
-                    <div className="w-full flex flex-col gap-2 pt-2 border-t border-stone-100">
+                    {/* Actions */}
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-5">
                       <button
                         id={`download-qr-btn-${label}`}
                         onClick={() => downloadQRCode(label)}
-                        className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 border border-amber-200/40 shadow-sm"
+                        className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 border border-amber-200/40"
                       >
-                        <Download size={13} />
+                        <Download size={12} />
                         {t('tables.download_qr')}
                       </button>
                       <button
                         id={`simulate-scan-btn-${label}`}
                         onClick={() => window.open(guestMenuUrl, '_blank')}
-                        className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 border border-stone-200/40"
+                        className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-bold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 border border-stone-200/40"
                       >
-                        <ExternalLink size={12} />
+                        <ExternalLink size={11} />
                         {t('tables.open_menu_simulation')}
                       </button>
                     </div>
