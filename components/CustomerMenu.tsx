@@ -195,7 +195,7 @@ export default function CustomerMenu() {
     <div id="customer-menu-container" className="w-full max-w-md mx-auto bg-stone-50 min-h-screen shadow-lg flex flex-col relative text-stone-800 pb-20">
       
       {/* Banner / Header */}
-      <header id="customer-header" className="relative h-44 bg-cover bg-center flex flex-col justify-end p-4 text-white rounded-b-2xl overflow-hidden shadow-md" style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.3) 100%), url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&q=80')` }}>
+      <header id="customer-header" className="relative h-60 bg-cover bg-center flex flex-col justify-end p-4 text-white rounded-b-2xl overflow-hidden shadow-md" style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.3) 100%), url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&q=80')` }}>
         <div className="absolute top-4 right-4 z-10">
           <div className="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
             <Clock size={12} />
