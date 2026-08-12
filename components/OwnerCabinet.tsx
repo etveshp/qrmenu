@@ -1011,8 +1011,6 @@ export default function OwnerCabinet() {
             <div id="qr-codes-grid" className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
               {tables.map((table) => {
                 const label = table.label;
-                // Point URL specifically with table parameter
-                const guestMenuUrl = `${baseOriginUrl}/?table=${label}`;
                 const qrSrc = table.qrPath
                   ? supabase.storage.from('qr-codes').getPublicUrl(table.qrPath).data.publicUrl
                   : null;
@@ -1021,66 +1019,10 @@ export default function OwnerCabinet() {
                   <div 
                     key={table.id} 
                     id={`table-qr-card-${label}`}
-                    className="bg-white border border-stone-200 rounded-2xl p-3 shadow-sm flex items-center gap-3 relative"
+                    className="bg-white border border-stone-200 rounded-2xl shadow-sm flex overflow-hidden"
                   >
-                    {/* Regenerate QR */}
-                    <button
-                      id={`regenerate-qr-btn-${label}`}
-                      onClick={async () => {
-                        try {
-                          await regenerateTableQr(table.id);
-                        } catch (err) {
-                          console.error('Failed to regenerate QR', err);
-                          window.alert(t('common.save_error'));
-                        }
-                      }}
-                      className="absolute top-1.5 right-1.5 p-1 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
-                      title={t('tables.regenerate_qr')}
-                    >
-                      <RefreshCw size={13} />
-                    </button>
-
-                    {/* Delete table (also removes the stored QR file) */}
-                    <button
-                      id={`delete-table-${label}`}
-                      onClick={async () => {
-                        if (confirm(t('tables.delete_confirm'))) {
-                          try {
-                            await deleteTable(label);
-                          } catch (err) {
-                            console.error('Failed to delete table', err);
-                            window.alert(t('common.delete_error'));
-                          }
-                        }
-                      }}
-                      className="absolute top-8 right-1.5 p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                      title={t('tables.delete_title')}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-
-                    {/* Table badge (font scales down for longer names) */}
-                    <div className="flex flex-col items-center gap-1 shrink-0 w-16">
-                      <div
-                        className={`w-10 h-10 bg-amber-600 text-white rounded-xl flex items-center justify-center font-black shadow-sm px-1 leading-none ${
-                          label.length <= 2
-                            ? 'text-lg'
-                            : label.length <= 4
-                              ? 'text-sm'
-                              : label.length <= 6
-                                ? 'text-xs'
-                                : 'text-[10px]'
-                        }`}
-                      >
-                        {label}
-                      </div>
-                      <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wide leading-tight text-center break-words">
-                        {label}
-                      </span>
-                    </div>
-
-                    {/* QR Code */}
-                    <div className="bg-stone-50 border border-stone-200/60 p-1.5 rounded-xl shrink-0">
+                    {/* QR Code — full height on the left */}
+                    <div className="bg-stone-50 border-r border-stone-200/60 p-2 flex items-center justify-center shrink-0">
                       {qrSrc ? (
                         <img
                           src={qrSrc}
@@ -1110,8 +1052,48 @@ export default function OwnerCabinet() {
                       )}
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-5">
+                    {/* Right column: table name + download */}
+                    <div className="flex flex-col justify-between gap-2 p-3 flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-extrabold text-stone-900 text-sm truncate">
+                          {label}
+                        </span>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            id={`regenerate-qr-btn-${label}`}
+                            onClick={async () => {
+                              try {
+                                await regenerateTableQr(table.id);
+                              } catch (err) {
+                                console.error('Failed to regenerate QR', err);
+                                window.alert(t('common.save_error'));
+                              }
+                            }}
+                            className="p-1 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
+                            title={t('tables.regenerate_qr')}
+                          >
+                            <RefreshCw size={14} />
+                          </button>
+                          <button
+                            id={`delete-table-${label}`}
+                            onClick={async () => {
+                              if (confirm(t('tables.delete_confirm'))) {
+                                try {
+                                  await deleteTable(label);
+                                } catch (err) {
+                                  console.error('Failed to delete table', err);
+                                  window.alert(t('common.delete_error'));
+                                }
+                              }
+                            }}
+                            className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                            title={t('tables.delete_title')}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+
                       <button
                         id={`download-qr-btn-${label}`}
                         onClick={() => downloadQRCode(label)}
