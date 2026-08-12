@@ -62,8 +62,16 @@ export default function MoreMenu({ onOpenProfile }: { onOpenProfile: () => void 
             <MoreVertical size={17} />
           </button>
         ) : (
-          // Expanded state: vertical capsule with actions
+          // Expanded state: vertical capsule — kebab icon stays on top,
+          // then sound toggle, profile and sign-out below it
           <div id="more-expanded-list" className="flex flex-col items-center gap-0.5 w-full">
+            <div
+              className="w-8 h-8 flex items-center justify-center text-stone-500"
+              title={t('header.more')}
+            >
+              <MoreVertical size={16} />
+            </div>
+
             <button
               id="more-sound-btn"
               type="button"
