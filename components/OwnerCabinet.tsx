@@ -978,7 +978,7 @@ export default function OwnerCabinet() {
                         onClick={() => openEditCatForm(cat)}
                         className="p-2 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors border border-stone-100 bg-white"
                       >
-                        <Edit size={14} />
+                        <Edit size={18} />
                       </button>
                       <button
                         id={`delete-cat-${cat.id}`}
@@ -994,7 +994,7 @@ export default function OwnerCabinet() {
                         }}
                         className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-stone-100 bg-white"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
