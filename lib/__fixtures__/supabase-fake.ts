@@ -48,14 +48,14 @@ export function createSupabaseFake(): SupabaseFake {
     listeners: Array<(event: string, session: unknown) => void>;
     channels: unknown[];
   } = {
-    db: { categories: [], menu_items: [], tables: [], orders: [], order_items: [] },
+    db: { categories: [], menu_items: [], tables: [], orders: [], order_items: [], settings: [] },
     session: null,
     listeners: [],
     channels: [],
   };
 
   const reset = () => {
-    state.db = { categories: [], menu_items: [], tables: [], orders: [], order_items: [] };
+    state.db = { categories: [], menu_items: [], tables: [], orders: [], order_items: [], settings: [] };
     state.session = null;
     state.listeners = [];
     state.channels = [];
@@ -144,6 +144,30 @@ export function createSupabaseFake(): SupabaseFake {
       },
       single() {
         singleMode = true;
+        return chain;
+      },
+      maybeSingle() {
+        singleMode = true;
+        return chain;
+      },
+      upsert(rows: FakeRow | FakeRow[]) {
+        const arr = Array.isArray(rows) ? rows : [rows];
+        for (const r of arr) {
+          const idx = state.db[table].findIndex(
+            (x) => (r.key !== undefined && x.key === r.key) || (r.id !== undefined && x.id === r.id)
+          );
+          if (idx >= 0) {
+            state.db[table][idx] = { ...state.db[table][idx], ...r };
+          } else {
+            if (!r.id) {
+              r.id =
+                typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                  ? crypto.randomUUID()
+                  : `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+            }
+            state.db[table].push(r);
+          }
+        }
         return chain;
       },
       then(onFulfilled: (v: { data: unknown; error: null }) => unknown) {

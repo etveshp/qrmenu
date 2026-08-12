@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, act, waitFor } from '@testing-library/react';
+import { render, act, waitFor, cleanup } from '@testing-library/react';
 import { useEffect } from 'react';
 import { createSupabaseFake } from './__fixtures__/supabase-fake';
 import type { FakeRow } from './__fixtures__/supabase-fake';
@@ -328,6 +328,28 @@ describe('owner auth', () => {
       res = await store.changePassword('new-secure-password');
     });
     expect(res?.error).toBeNull();
+  });
+
+  it('persists the sound preference to the DB and restores it on remount', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+    expect(store.soundEnabled).toBe(true);
+
+    // Toggle off -> written to the settings table
+    await act(async () => {
+      store.setSoundEnabled(false);
+    });
+    await waitFor(() => {
+      const rows = mock.state.db.settings as { key: string; value: { sound_enabled: boolean } }[];
+      expect(rows.find((r) => r.key === 'owner')?.value.sound_enabled).toBe(false);
+    });
+
+    // A fresh provider (e.g. after navigating to another page) restores it
+    cleanup();
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+    await waitFor(() => expect(store.soundEnabled).toBe(false));
   });
 });
 

@@ -406,7 +406,7 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
   const [isOwner, setIsOwner] = useState(false);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabledState] = useState(true);
 
   const tableUuidByLabel = useRef<Map<string, string>>(new Map());
 
@@ -418,6 +418,35 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
+  };
+
+  // ---- Owner preferences (persisted in DB) ----
+  const loadOwnerSettings = async () => {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'owner')
+      .maybeSingle();
+    if (error) {
+      console.error('Failed to load owner settings', error);
+      return;
+    }
+    const value = (data as { value?: { sound_enabled?: boolean } } | null)?.value;
+    if (typeof value?.sound_enabled === 'boolean') {
+      setSoundEnabledState(value.sound_enabled);
+    }
+  };
+
+  const setSoundEnabled = (enabled: boolean) => {
+    setSoundEnabledState(enabled);
+    if (!isOwner) return;
+    // fire-and-forget write-through to the settings table
+    void (async () => {
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key: 'owner', value: { sound_enabled: enabled } });
+      if (error) console.error('Failed to save sound preference', error);
+    })();
   };
 
   // ---- Menu data (public read) ----
@@ -498,7 +527,10 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
         const user = data.session?.user ?? null;
         setIsOwner(!!user);
         setOwnerEmail(user?.email ?? null);
-        if (user) loadOrders();
+        if (user) {
+          loadOrders();
+          loadOwnerSettings();
+        }
       })
       .catch((err) => console.error('Failed to read session', err));
 
@@ -510,8 +542,10 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
       setOwnerEmail(user?.email ?? null);
       if (user) {
         loadOrders();
+        loadOwnerSettings();
       } else {
         setOrders([]);
+        setSoundEnabledState(true);
       }
     });
 
