@@ -616,11 +616,6 @@ export default function OwnerCabinet() {
           <div className="w-9 h-9 bg-amber-600 text-white rounded-xl flex items-center justify-center">
             <Settings size={18} />
           </div>
-          <div className="flex flex-col justify-center">
-            <h1 className="font-extrabold text-stone-900 text-base leading-tight whitespace-pre-line">
-              {t('dashboard.title').replace(' ', '\n')}
-            </h1>
-          </div>
         </div>
 
         <div className="flex items-center gap-3">
