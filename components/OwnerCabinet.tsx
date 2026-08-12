@@ -90,6 +90,10 @@ export default function OwnerCabinet() {
   const [password, setPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<boolean>(false);
 
+  // In-app confirm dialog (replaces native browser confirm())
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const askConfirm = (message: string, onConfirm: () => void) => setConfirmDialog({ message, onConfirm });
+
   // Tabs: 'orders', 'menu', 'categories', 'tables'
   const [activeTab, setActiveTab] = useState<'orders' | 'menu' | 'categories' | 'tables'>('orders');
 
@@ -799,16 +803,14 @@ export default function OwnerCabinet() {
 
                         <button
                           id={`delete-order-${order.id}`}
-                          onClick={async () => {
-                            if (confirm(t('orders.delete_confirm'))) {
-                              try {
-                                await deleteOrder(order.id);
-                              } catch (err) {
+                          onClick={() =>
+                            askConfirm(t('orders.delete_confirm'), () => {
+                              deleteOrder(order.id).catch((err) => {
                                 console.error('Failed to delete order', err);
                                 window.alert(t('common.delete_error'));
-                              }
-                            }
-                          }}
+                              });
+                            })
+                          }
                           className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 hover:border-rose-100 bg-white"
                           title={t('orders.delete_title')}
                         >
@@ -895,16 +897,14 @@ export default function OwnerCabinet() {
                           </button>
                           <button
                             id={`delete-dish-btn-${item.id}`}
-                            onClick={async () => {
-                              if (confirm(t('menu.delete_item_confirm'))) {
-                                try {
-                                  await deleteMenuItem(item.id);
-                                } catch (err) {
+                            onClick={() =>
+                              askConfirm(t('menu.delete_item_confirm'), () => {
+                                deleteMenuItem(item.id).catch((err) => {
                                   console.error('Failed to delete dish', err);
                                   window.alert(t('common.delete_error'));
-                                }
-                              }
-                            }}
+                                });
+                              })
+                            }
                             className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 bg-white"
                           >
                             <Trash2 size={12} />
@@ -956,16 +956,14 @@ export default function OwnerCabinet() {
                       </button>
                       <button
                         id={`delete-cat-${cat.id}`}
-                        onClick={async () => {
-                          if (confirm(t('cat.delete_confirm'))) {
-                            try {
-                              await deleteCategory(cat.id);
-                            } catch (err) {
+                        onClick={() =>
+                          askConfirm(t('cat.delete_confirm'), () => {
+                            deleteCategory(cat.id).catch((err) => {
                               console.error('Failed to delete category', err);
                               window.alert(t('common.delete_error'));
-                            }
-                          }
-                        }}
+                            });
+                          })
+                        }
                         className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-stone-100 bg-white"
                       >
                         <Trash2 size={18} />
@@ -1059,16 +1057,14 @@ export default function OwnerCabinet() {
                         </span>
                         <button
                           id={`delete-table-${label}`}
-                          onClick={async () => {
-                            if (confirm(t('tables.delete_confirm'))) {
-                              try {
-                                await deleteTable(label);
-                              } catch (err) {
+                          onClick={() =>
+                            askConfirm(t('tables.delete_confirm'), () => {
+                              deleteTable(label).catch((err) => {
                                 console.error('Failed to delete table', err);
                                 window.alert(t('common.delete_error'));
-                              }
-                            }
-                          }}
+                              });
+                            })
+                          }
                           className="shrink-0 p-2 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-stone-200 bg-white shadow-sm transition-colors"
                           title={t('tables.delete_title')}
                         >
@@ -1426,6 +1422,50 @@ export default function OwnerCabinet() {
               </form>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* In-app confirm dialog (replaces native confirm()) */}
+      <AnimatePresence>
+        {confirmDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-xs w-full p-6 shadow-2xl flex flex-col gap-5 text-stone-800"
+            >
+              <p className="text-sm font-semibold text-stone-800 text-center leading-relaxed">
+                {confirmDialog.message}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  id="confirm-cancel-btn"
+                  type="button"
+                  onClick={() => setConfirmDialog(null)}
+                  className="flex-1 bg-white border border-stone-200 text-stone-700 font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all hover:bg-stone-50 active:scale-95"
+                >
+                  {t('menu.cancel')}
+                </button>
+                <button
+                  id="confirm-ok-btn"
+                  type="button"
+                  onClick={() => {
+                    setConfirmDialog(null);
+                    confirmDialog.onConfirm();
+                  }}
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md active:scale-95"
+                >
+                  {t('common.delete')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

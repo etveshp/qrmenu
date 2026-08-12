@@ -359,6 +359,7 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   // Common
   'common.save_error': { ua: 'Не вдалося зберегти. Спробуйте ще раз.', en: 'Failed to save. Please try again.', hu: 'Nem sikerült menteni. Próbálja újra.' },
   'common.delete_error': { ua: 'Не вдалося видалити. Спробуйте ще раз.', en: 'Failed to delete. Please try again.', hu: 'Nem sikerült törölni. Próbálja újra.' },
+  'common.delete': { ua: 'Видалити', en: 'Delete', hu: 'Törlés' },
   'common.loading': { ua: 'Завантаження...', en: 'Loading...', hu: 'Betöltés...' },
   'common.rights_reserved': { ua: 'Всі права захищено.', en: 'All rights reserved.', hu: 'Minden jog fenntartva.' },
   'common.great': { ua: 'Чудово!', en: 'Awesome!', hu: 'Remek!' },
