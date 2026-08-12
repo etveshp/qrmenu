@@ -269,7 +269,7 @@ export default function CustomerMenu() {
                   key={cat.id}
                   id={`cat-tile-${cat.id}`}
                   onClick={() => setActiveCategory(cat.id)}
-                  className="relative h-28 rounded-2xl overflow-hidden shadow-sm border border-stone-200/60 text-left group active:scale-[0.98] transition-transform"
+                  className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-sm border border-stone-200/60 text-left group active:scale-[0.98] transition-transform"
                 >
                   <img
                     src={cover}
@@ -278,12 +278,9 @@ export default function CustomerMenu() {
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-                  <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between gap-1">
-                    <span className="text-white font-extrabold text-sm leading-tight drop-shadow">
-                      {language === 'ua' ? cat.nameUa : language === 'hu' ? (cat.nameHu || cat.nameEn || cat.nameUa) : cat.nameEn}
-                    </span>
-                    <span className="text-base drop-shadow">{cat.icon}</span>
-                  </div>
+                  <span className="absolute bottom-2 left-2.5 right-2.5 text-white font-extrabold text-sm leading-tight drop-shadow">
+                    {language === 'ua' ? cat.nameUa : language === 'hu' ? (cat.nameHu || cat.nameEn || cat.nameUa) : cat.nameEn}
+                  </span>
                 </button>
               );
             })}
