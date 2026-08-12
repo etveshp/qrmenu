@@ -530,6 +530,8 @@ export default function OwnerCabinet() {
 
   const pendingOrdersCount = orders.filter(o => o.status === 'new' || o.status === 'preparing').length;
 
+  const newOrdersCount = orders.filter(o => o.status === 'new').length;
+
   if (!isOwner) {
     return (
       <div id="admin-login-wrapper" className="w-full max-w-md mx-auto bg-stone-50 min-h-screen flex items-center justify-center p-4">
@@ -673,6 +675,14 @@ export default function OwnerCabinet() {
           >
             <ClipboardList size={14} className={activeTab === 'orders' ? 'text-white' : 'text-amber-600'} />
             {t('dashboard.tab_orders')}
+            {newOrdersCount > 0 && (
+              <span
+                id="orders-tab-badge"
+                className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-black bg-rose-500 text-white shadow-sm"
+              >
+                {newOrdersCount}
+              </span>
+            )}
           </button>
           <button
             id="tab-btn-menu"

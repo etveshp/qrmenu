@@ -114,6 +114,25 @@ describe('OwnerCabinet — sound', () => {
   });
 });
 
+describe('OwnerCabinet — orders badge', () => {
+  it('shows the new-orders count badge and hides it when there are none', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    mock.state.db.orders.push({
+      id: 'o-1', table_id: null, status: 'new', notes: null,
+      total_price: 100, created_at: '2026-08-12T10:00:00Z',
+    });
+    const { container } = render(
+      <QRMenuProvider>
+        <OwnerCabinet />
+      </QRMenuProvider>
+    );
+    await screen.findByText('Замовлення');
+
+    const badge = await waitFor(() => container.querySelector('#orders-tab-badge'));
+    expect(badge?.textContent).toBe('1');
+  });
+});
+
 describe('OwnerCabinet — dish form', () => {
   it('adds a dish through the menu form (persists to DB)', async () => {
     const user = userEvent.setup();
