@@ -701,7 +701,7 @@ export default function OwnerCabinet() {
         {/* Stats Grid */}
         <div id="admin-stats-bar" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('orders.active_count')}</span>
+            <span className="text-xs font-bold text-stone-900 leading-none">{t('orders.active_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
                 <Clock size={20} />
@@ -711,7 +711,7 @@ export default function OwnerCabinet() {
           </div>
           
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.cash_revenue')}</span>
+            <span className="text-xs font-bold text-stone-900 leading-none">{t('dashboard.cash_revenue')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                 <DollarSign size={20} />
@@ -721,7 +721,7 @@ export default function OwnerCabinet() {
           </div>
 
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.dish_count')}</span>
+            <span className="text-xs font-bold text-stone-900 leading-none">{t('dashboard.dish_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
                 <UtensilsCrossed size={20} />
@@ -731,7 +731,7 @@ export default function OwnerCabinet() {
           </div>
 
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.table_count')}</span>
+            <span className="text-xs font-bold text-stone-900 leading-none">{t('dashboard.table_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                 <Users size={20} />
