@@ -1,13 +1,24 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect } from 'react';
 import { createSupabaseFake } from '../lib/__fixtures__/supabase-fake';
 
 const mock = createSupabaseFake();
 vi.mock('../lib/supabase/client', () => ({ supabase: mock.supabase }));
 
-const { QRMenuProvider } = await import('../lib/store');
+const { QRMenuProvider, useQRMenu } = await import('../lib/store');
 const { default: OwnerCabinet } = await import('./OwnerCabinet');
+
+// Captures the store for tests that drive state directly (e.g. sound)
+let store: ReturnType<typeof useQRMenu>;
+function StoreProbe() {
+  const ctx = useQRMenu();
+  useEffect(() => {
+    store = ctx;
+  });
+  return null;
+}
 
 const renderCabinet = () => {
   render(
@@ -55,6 +66,51 @@ describe('OwnerCabinet — auth', () => {
     renderCabinet();
     expect(screen.getByRole('button', { name: 'Увійти' })).toBeInTheDocument();
     expect(screen.queryByText('Замовлення')).not.toBeInTheDocument();
+  });
+});
+
+describe('OwnerCabinet — sound', () => {
+  it('does not chime when sound is disabled', async () => {
+    const audioCtor = vi.fn();
+    const MockAudioCtx = class {
+      currentTime = 0;
+      destination = {};
+      createOscillator() {
+        return { type: '', frequency: { setValueAtTime: vi.fn() }, connect: vi.fn(), start: vi.fn(), stop: vi.fn() };
+      }
+      createGain() {
+        return { gain: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() }, connect: vi.fn() };
+      }
+      constructor() {
+        audioCtor();
+      }
+    };
+    vi.stubGlobal('AudioContext', MockAudioCtx);
+    try {
+      mock.state.session = { user: { email: 'owner@cafe.com' } };
+      render(
+        <QRMenuProvider>
+          <StoreProbe />
+          <OwnerCabinet />
+        </QRMenuProvider>
+      );
+      await screen.findByText('Замовлення');
+
+      // Disable sound, then a new order arrives
+      await act(async () => {
+        store.setSoundEnabled(false);
+      });
+      await act(async () => {
+        await store.createOrder('1', [
+          { menuItemId: 'dish-1', nameUa: 'Піца', nameEn: 'Pizza', nameHu: 'Pizza', quantity: 1, price: 100 },
+        ]);
+      });
+
+      // No AudioContext should have been created
+      expect(audioCtor).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
