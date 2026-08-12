@@ -654,7 +654,7 @@ export default function OwnerCabinet() {
         {/* Stats Grid */}
         <div id="admin-stats-bar" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">{t('orders.active_count')}</span>
+            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('orders.active_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
                 <Clock size={20} />
@@ -664,7 +664,7 @@ export default function OwnerCabinet() {
           </div>
           
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.cash_revenue')}</span>
+            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.cash_revenue')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                 <DollarSign size={20} />
@@ -674,7 +674,7 @@ export default function OwnerCabinet() {
           </div>
 
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.dish_count')}</span>
+            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.dish_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
                 <UtensilsCrossed size={20} />
@@ -684,7 +684,7 @@ export default function OwnerCabinet() {
           </div>
 
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-[10px] font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.table_count')}</span>
+            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.table_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                 <Users size={20} />
@@ -795,7 +795,7 @@ export default function OwnerCabinet() {
                         <span className="text-stone-400 text-xs font-semibold">
                           {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        <span className="text-[10px] text-stone-300 font-medium">
+                        <span className="text-xs text-stone-300 font-medium">
                           ({order.id})
                         </span>
                       </div>
@@ -805,7 +805,7 @@ export default function OwnerCabinet() {
                         {order.items.map((it, idx) => (
                           <div key={idx} className="flex justify-between items-center text-xs">
                             <div className="flex items-center gap-1.5 font-bold text-stone-800">
-                              <span className="text-amber-600 bg-amber-50 border border-amber-200/50 w-5 h-5 rounded flex items-center justify-center text-[10px] font-black">
+                              <span className="text-amber-600 bg-amber-50 border border-amber-200/50 w-5 h-5 rounded flex items-center justify-center text-xs font-black">
                                 {it.quantity}
                               </span>
                               <span>{language === 'ua' ? it.nameUa : language === 'hu' ? (it.nameHu || it.nameEn || it.nameUa) : it.nameEn}</span>
@@ -826,7 +826,7 @@ export default function OwnerCabinet() {
 
                     <div className="flex flex-col sm:flex-row md:flex-col justify-between items-end gap-3 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-stone-100 w-full md:w-48">
                       <div className="flex justify-between items-center w-full sm:w-32 md:w-full gap-4 pb-1">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wide">{t('orders.grand_total')}</span>
+                        <span className="text-xs font-bold text-stone-400 uppercase tracking-wide">{t('orders.grand_total')}</span>
                         <span className="text-base font-black text-stone-900">{order.totalPrice} ₴</span>
                       </div>
 
@@ -941,17 +941,17 @@ export default function OwnerCabinet() {
                             {item.price} ₴
                           </span>
                         </div>
-                        <span className="text-[10px] text-stone-400 font-bold tracking-wide uppercase leading-none">
+                        <span className="text-xs text-stone-400 font-bold tracking-wide uppercase leading-none">
                           {categoryLabel}
                         </span>
-                        <p className="text-[11px] text-stone-500 line-clamp-2 mt-1 leading-relaxed">
+                        <p className="text-xs text-stone-500 line-clamp-2 mt-1 leading-relaxed">
                           {language === 'ua' ? item.descriptionUa : language === 'hu' ? (item.descriptionHu || item.descriptionEn || item.descriptionUa) : item.descriptionEn}
                         </p>
                       </div>
 
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-100">
                         {/* Availability pill */}
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                        <span className={`text-xs font-black px-2 py-0.5 rounded-full ${
                           item.isAvailable 
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/40' 
                             : 'bg-rose-50 text-rose-700 border border-rose-200/40'
@@ -1140,7 +1140,7 @@ export default function OwnerCabinet() {
                       <h4 className="font-extrabold text-stone-900 text-sm uppercase tracking-wide mt-1">
                         {t('tables.print_title')}
                       </h4>
-                      <p className="text-[11px] text-stone-400 font-semibold tracking-wide uppercase leading-none">
+                      <p className="text-xs text-stone-400 font-semibold tracking-wide uppercase leading-none">
                         Стіл №{tableId}
                       </p>
                     </div>
@@ -1345,7 +1345,7 @@ export default function OwnerCabinet() {
                             <span className="text-xs font-extrabold text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-2 py-0.5 inline-block mb-1">
                               {menuFormState.image.startsWith('data:image/') ? t('menu.photo_custom') : t('menu.photo_preset')}
                             </span>
-                            <p className="text-[11px] text-stone-400 max-w-[200px] truncate">{menuFormState.image}</p>
+                            <p className="text-xs text-stone-400 max-w-[200px] truncate">{menuFormState.image}</p>
                           </div>
                         </div>
                         <button
@@ -1366,7 +1366,7 @@ export default function OwnerCabinet() {
                           <Upload size={18} />
                         </div>
                         <p className="text-xs font-bold text-stone-700">{t('menu.drag_and_drop')}</p>
-                        <p className="text-[10px] text-stone-400">PNG, JPG, WEBP (max. 10MB)</p>
+                        <p className="text-xs text-stone-400">PNG, JPG, WEBP (max. 10MB)</p>
                       </div>
                     )}
                   </div>
@@ -1382,7 +1382,7 @@ export default function OwnerCabinet() {
                   {/* Select Preset & Manual Input toggle */}
                   <div className="flex flex-col gap-1.5 mt-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">{t('menu.image_or')}</span>
+                      <span className="text-xs font-bold text-stone-400 uppercase tracking-wider">{t('menu.image_or')}</span>
                       <button
                         id="pick-preset-photo-btn"
                         type="button"
@@ -1570,7 +1570,7 @@ export default function OwnerCabinet() {
                         loading="lazy"
                       />
                     </div>
-                    <span className="p-2 text-[11px] font-bold text-stone-700 truncate block w-full bg-white border-t border-stone-100">
+                    <span className="p-2 text-xs font-bold text-stone-700 truncate block w-full bg-white border-t border-stone-100">
                       {preset.name}
                     </span>
                   </button>

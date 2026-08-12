@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* Typography scale bumped for mobile readability.
+   Baseline follows Material Design / iOS guidance: primary text >=16px,
+   secondary >=14px, smallest labels >=13px (10-11px was below the
+   WCAG readability floor). Sizes in rem (13px, 15px, 17px, 20px, 22px, 26px, 32px, 38px). */
+@theme {
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.5rem;
+  --text-4xl: 2.375rem;
+  --text-4xl--line-height: 2.75rem;
+}
+
 @layer base {
   button, 
   [role="button"],

@@ -230,7 +230,7 @@ export default function CustomerMenu() {
               {t('menu.welcome_hello')} <span className="font-extrabold text-amber-900 drop-shadow-sm">{t('menu.welcome_cafe')}</span>!{' '}
               {selectedTable ? (
                 <>
-                  {t('menu.welcome_table')} <span className="inline-block bg-amber-200/70 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-amber-300/40 font-sans shadow-sm">№{selectedTable}</span>.{' '}
+                  {t('menu.welcome_table')} <span className="inline-block bg-amber-200/70 text-amber-950 text-xs font-black px-1.5 py-0.5 rounded-md border border-amber-300/40 font-sans shadow-sm">№{selectedTable}</span>.{' '}
                 </>
               ) : null}
               {t('menu.welcome_goodbye')}
@@ -384,7 +384,7 @@ export default function CustomerMenu() {
                           className="overflow-hidden mt-1 pt-2 border-t border-stone-100 flex flex-col gap-2"
                         >
                           <div className="flex flex-col gap-1 bg-stone-50 p-2.5 rounded-lg text-xs leading-relaxed">
-                            <span className="font-extrabold text-stone-700 flex items-center gap-1 text-[11px] uppercase tracking-wide">
+                            <span className="font-extrabold text-stone-700 flex items-center gap-1 text-xs uppercase tracking-wide">
                               <Info size={12} className="text-amber-600" />
                               {t('menu.ingredients')}
                             </span>
@@ -524,7 +524,7 @@ export default function CustomerMenu() {
             <div className="flex items-center gap-2">
               <div className="relative">
                 <ShoppingCart size={20} />
-                <span className="absolute -top-2.5 -right-2.5 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-amber-600 shadow-sm">
+                <span className="absolute -top-2.5 -right-2.5 bg-rose-500 text-white text-xs font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-amber-600 shadow-sm">
                   {totalCartItems}
                 </span>
               </div>
@@ -665,7 +665,7 @@ export default function CustomerMenu() {
                   <span className="text-xl text-amber-700">{cartTotal} ₴</span>
                 </div>
                 
-                <p className="text-[10px] text-stone-400 font-medium text-center leading-relaxed flex items-center justify-center gap-1">
+                <p className="text-xs text-stone-400 font-medium text-center leading-relaxed flex items-center justify-center gap-1">
                   <AlertTriangle size={12} className="text-amber-500 shrink-0" />
                   <span>{t('cart.no_payment_notice')}</span>
                 </p>
@@ -709,7 +709,7 @@ export default function CustomerMenu() {
               <p className="text-stone-500 text-xs leading-relaxed mb-4">
                 {t('cart.success_msg')}
               </p>
-              <div className="bg-stone-50 px-4 py-2 rounded-lg border border-stone-100 text-[11px] text-stone-500 font-semibold mb-5 uppercase tracking-wider">
+              <div className="bg-stone-50 px-4 py-2 rounded-lg border border-stone-100 text-xs text-stone-500 font-semibold mb-5 uppercase tracking-wider">
                 ID: {lastOrderId.slice(0, 8).toUpperCase()}
               </div>
               <button

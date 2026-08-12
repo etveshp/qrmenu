@@ -97,7 +97,7 @@ function MainAppContent() {
       </main>
 
       {/* Footer info */}
-      <footer id="app-footer" className="w-full bg-white border-t border-stone-200/50 py-4 px-6 text-center text-[11px] text-stone-400 font-medium">
+      <footer id="app-footer" className="w-full bg-white border-t border-stone-200/50 py-4 px-6 text-center text-xs text-stone-400 font-medium">
         <p>© 2026 {t('app.name')}. {t('common.rights_reserved')}</p>
         <p className="mt-1 text-stone-300">{t('app.made_with')}</p>
       </footer>
