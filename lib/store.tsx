@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import QRCode from 'qrcode';
 import { supabase } from './supabase/client';
 
 // ============================================================
@@ -53,11 +54,17 @@ export interface Order {
   notes?: string;
 }
 
+export interface TableInfo {
+  id: string;
+  label: string;
+  qrPath: string | null; // path inside the qr-codes storage bucket
+}
+
 interface QRMenuContextType {
   menuItems: MenuItem[];
   categories: Category[];
   orders: Order[];
-  tables: string[]; // table labels
+  tables: TableInfo[];
   language: 'ua' | 'en' | 'hu';
   setLanguage: (lang: 'ua' | 'en' | 'hu') => void;
   // Owner auth (Supabase)
@@ -81,6 +88,7 @@ interface QRMenuContextType {
   deleteOrder: (id: string) => Promise<void>;
   addTable: (label: string) => Promise<void>;
   deleteTable: (label: string) => Promise<void>;
+  regenerateTableQr: (id: string) => Promise<void>;
   t: (key: string) => string;
 }
 
@@ -197,13 +205,23 @@ const toCategoryPayload = (c: Omit<Category, 'id'> | Partial<Category>) => {
   return p;
 };
 
-const sortTableLabels = (labels: string[]) =>
-  [...labels].sort((a, b) => {
-    const numA = parseInt(a);
-    const numB = parseInt(b);
+const sortTables = (items: TableInfo[]) =>
+  [...items].sort((a, b) => {
+    const numA = parseInt(a.label);
+    const numB = parseInt(b.label);
     if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-    return a.localeCompare(b);
+    return a.label.localeCompare(b.label);
   });
+
+// dataURL -> Blob so generated QR PNGs can be uploaded to Storage
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const [meta, b64] = dataUrl.split(',');
+  const mime = meta.match(/data:(.*?);/)?.[1] ?? 'image/png';
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+};
 
 const newId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -326,17 +344,22 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   // Table Generator & QR
   'tables.title': { ua: 'Генератор QR-кодів для столиків', en: 'QR Code Table Generator', hu: 'QR-kód generátor asztalokhoz' },
   'tables.add_table': { ua: 'Додати столик', en: 'Add Table', hu: 'Asztal hozzáadása' },
+  'tables.label': { ua: 'Номер або назва столика', en: 'Table number or name', hu: 'Asztal száma vagy neve' },
+  'tables.table_label': { ua: 'Столик', en: 'Table', hu: 'Asztal' },
   'tables.placeholder': { ua: 'Номер або ім\'я столика (наприклад, 6 або VIP-1)', en: 'Table number or name (e.g., 6 or VIP-1)', hu: 'Asztal száma vagy neve (pl. 6 vagy VIP-1)' },
   'tables.print_title': { ua: 'QR-код для безконтактного замовлення', en: 'QR Code for Touchless Ordering', hu: 'QR-kód az érintésmentes rendeléshez' },
   'tables.print_scan': { ua: 'Відскануйте, щоб відкрити меню', en: 'Scan to open the menu', hu: 'Szkennelje be a menü megnyitásához' },
   'tables.open_menu_simulation': { ua: 'Симулювати сканування (відкрити меню)', en: 'Simulate scanning (open menu)', hu: 'Szkennelés szimulálása (menü megnyitása)' },
   'tables.delete_confirm': { ua: 'Видалити цей столик?', en: 'Delete this table?', hu: 'Törli ezt az asztalt?' },
   'tables.download_qr': { ua: 'Завантажити QR-код', en: 'Download QR Code', hu: 'QR-kód letöltése' },
+  'tables.regenerate_qr': { ua: 'Перегенерувати QR-код', en: 'Regenerate QR Code', hu: 'QR-kód újragenerálása' },
+  'tables.generate_qr': { ua: 'Згенерувати QR', en: 'Generate QR', hu: 'QR generálása' },
   'tables.instruction': { ua: 'Роздрукуйте ці QR-коди та розмістіть їх на відповідних столах у кафе. Гості зможуть миттєво перейти до меню, просто навівши камеру свого телефону.', en: 'Print these QR codes and place them on the respective tables. Guests can instantly view the menu by simply pointing their phone camera.', hu: 'Nyomtassa ki ezeket a QR-kódokat és helyezze el a megfelelő asztalokon. A vendégek azonnal megtekinthetik a menüt a telefon kamerájával.' },
 
   // Common
   'common.save_error': { ua: 'Не вдалося зберегти. Спробуйте ще раз.', en: 'Failed to save. Please try again.', hu: 'Nem sikerült menteni. Próbálja újra.' },
   'common.delete_error': { ua: 'Не вдалося видалити. Спробуйте ще раз.', en: 'Failed to delete. Please try again.', hu: 'Nem sikerült törölni. Próbálja újra.' },
+  'common.delete': { ua: 'Видалити', en: 'Delete', hu: 'Törlés' },
   'common.loading': { ua: 'Завантаження...', en: 'Loading...', hu: 'Betöltés...' },
   'common.rights_reserved': { ua: 'Всі права захищено.', en: 'All rights reserved.', hu: 'Minden jog fenntartva.' },
   'common.great': { ua: 'Чудово!', en: 'Awesome!', hu: 'Remek!' },
@@ -390,7 +413,7 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
 export function QRMenuProvider({ children }: { children: React.ReactNode }) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [tables, setTables] = useState<string[]>([]);
+  const [tables, setTables] = useState<TableInfo[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [language, setLanguageState] = useState<'ua' | 'en' | 'hu'>(() => {
     if (typeof window !== 'undefined') {
@@ -406,7 +429,7 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
   const [isOwner, setIsOwner] = useState(false);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabledState] = useState(true);
 
   const tableUuidByLabel = useRef<Map<string, string>>(new Map());
 
@@ -418,6 +441,35 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
+  };
+
+  // ---- Owner preferences (persisted in DB) ----
+  const loadOwnerSettings = async () => {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'owner')
+      .maybeSingle();
+    if (error) {
+      console.error('Failed to load owner settings', error);
+      return;
+    }
+    const value = (data as { value?: { sound_enabled?: boolean } } | null)?.value;
+    if (typeof value?.sound_enabled === 'boolean') {
+      setSoundEnabledState(value.sound_enabled);
+    }
+  };
+
+  const setSoundEnabled = (enabled: boolean) => {
+    setSoundEnabledState(enabled);
+    if (!isOwner) return;
+    // fire-and-forget write-through to the settings table
+    void (async () => {
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key: 'owner', value: { sound_enabled: enabled } });
+      if (error) console.error('Failed to save sound preference', error);
+    })();
   };
 
   // ---- Menu data (public read) ----
@@ -434,9 +486,13 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
 
       setCategories(catRes.data.map(toCategory));
       setMenuItems(itemRes.data.map(toMenuItem));
-      const labelRows = tabRes.data as { id: string; label: string }[];
-      tableUuidByLabel.current = new Map(labelRows.map((r) => [r.label, r.id]));
-      setTables(sortTableLabels(labelRows.map((r) => r.label)));
+      const tableRows = tabRes.data as { id?: string; label: string; qr_path: string | null }[];
+      tableUuidByLabel.current = new Map(tableRows.map((r) => [r.label, r.id ?? newId()]));
+      setTables(
+        sortTables(
+          tableRows.map((r) => ({ id: r.id ?? newId(), label: r.label, qrPath: r.qr_path ?? null }))
+        )
+      );
     } catch (err) {
       console.error('Failed to load menu data', err);
     } finally {
@@ -498,7 +554,10 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
         const user = data.session?.user ?? null;
         setIsOwner(!!user);
         setOwnerEmail(user?.email ?? null);
-        if (user) loadOrders();
+        if (user) {
+          loadOrders();
+          loadOwnerSettings();
+        }
       })
       .catch((err) => console.error('Failed to read session', err));
 
@@ -510,8 +569,10 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
       setOwnerEmail(user?.email ?? null);
       if (user) {
         loadOrders();
+        loadOwnerSettings();
       } else {
         setOrders([]);
+        setSoundEnabledState(true);
       }
     });
 
@@ -652,25 +713,70 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ---- Tables ----
+  const generateTableQr = async (id: string, label: string) => {
+    const url = `${window.location.origin}/?table=${label}`;
+    const dataUrl = await QRCode.toDataURL(url, {
+      width: 400,
+      margin: 2,
+      color: { dark: '#1c1917', light: '#ffffff' },
+    });
+    const path = `qr-${id}.png`;
+    const { error: uploadError } = await supabase.storage
+      .from('qr-codes')
+      .upload(path, dataUrlToBlob(dataUrl), { contentType: 'image/png', upsert: true });
+    if (uploadError) throw uploadError;
+    // Persist the path so it survives reloads and can be removed on delete.
+    const { error: updateError } = await supabase
+      .from('tables')
+      .update({ qr_path: path })
+      .eq('id', id);
+    if (updateError) throw updateError;
+    setTables((prev) => prev.map((t) => (t.id === id ? { ...t, qrPath: path } : t)));
+  };
+
+  const regenerateTableQr = async (id: string) => {
+    const table = tables.find((t) => t.id === id);
+    if (!table) return;
+    await generateTableQr(id, table.label);
+  };
+
   const addTable = async (label: string) => {
     const clean = label.trim();
-    if (!clean || tables.includes(clean)) return;
+    if (!clean || tables.some((t) => t.label === clean)) return;
     const { data, error } = await supabase
       .from('tables')
       .insert({ label: clean })
       .select()
       .single();
     if (error) throw error;
-    const row = data as { id: string; label: string };
-    tableUuidByLabel.current.set(row.label, row.id);
-    setTables((prev) => sortTableLabels([...prev, row.label]));
+    const row = (data ?? {}) as { id?: string; label: string };
+    const tableId = row.id ?? newId();
+    tableUuidByLabel.current.set(row.label, tableId);
+    const newTable: TableInfo = { id: tableId, label: row.label, qrPath: null };
+    setTables((prev) => sortTables([...prev, newTable]));
+    // Generate and store the QR right away (best effort — a manual
+    // "regenerate" button is also available in the cabinet).
+    try {
+      await generateTableQr(newTable.id, newTable.label);
+    } catch (err) {
+      console.error('Failed to generate QR for table', row.label, err);
+    }
   };
 
   const deleteTable = async (label: string) => {
+    const table = tables.find((t) => t.label === label);
+    if (table?.qrPath) {
+      // Remove the stored QR file first — abort the whole delete if it fails,
+      // so nothing is left behind "somewhere".
+      const { error: rmError } = await supabase.storage
+        .from('qr-codes')
+        .remove([table.qrPath]);
+      if (rmError) throw rmError;
+    }
     const { error } = await supabase.from('tables').delete().eq('label', label);
     if (error) throw error;
     tableUuidByLabel.current.delete(label);
-    setTables((prev) => prev.filter((t) => t !== label));
+    setTables((prev) => prev.filter((t) => t.label !== label));
   };
 
   // ---- Translation helper ----
@@ -708,6 +814,7 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
         deleteOrder,
         addTable,
         deleteTable,
+        regenerateTableQr,
         t,
       }}
     >

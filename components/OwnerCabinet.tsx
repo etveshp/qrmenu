@@ -17,7 +17,6 @@ import {
   UtensilsCrossed, 
   FileText,
   Clock,
-  ExternalLink,
   Download,
   Camera,
   Upload,
@@ -83,12 +82,17 @@ export default function OwnerCabinet() {
     deleteOrder,
     addTable,
     deleteTable,
+    regenerateTableQr,
     t
   } = useQRMenu();
 
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<boolean>(false);
+
+  // In-app confirm dialog (replaces native browser confirm())
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const askConfirm = (message: string, onConfirm: () => void) => setConfirmDialog({ message, onConfirm });
 
   // Tabs: 'orders', 'menu', 'categories', 'tables'
   const [activeTab, setActiveTab] = useState<'orders' | 'menu' | 'categories' | 'tables'>('orders');
@@ -245,32 +249,6 @@ export default function OwnerCabinet() {
   // Base URL used for QR codes (guest menu link)
   const baseOriginUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
-  // Locally generated QR data URLs per table (replaces external qrserver API)
-  const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
-
-  // Regenerate QR codes whenever tables change
-  useEffect(() => {
-    let cancelled = false;
-    const generate = async () => {
-      const entries: Record<string, string> = {};
-      for (const label of tables) {
-        try {
-          entries[label] = await QRCode.toDataURL(`${baseOriginUrl}/?table=${label}`, {
-            width: 400,
-            margin: 2,
-            color: { dark: '#1c1917', light: '#ffffff' },
-          });
-        } catch (e) {
-          console.error('QR generation failed for table', label, e);
-        }
-      }
-      if (!cancelled) setQrDataUrls(entries);
-    };
-    generate();
-    return () => {
-      cancelled = true;
-    };
-  }, [tables, baseOriginUrl]);
 
   // Swipe/drag-scroll for admin tabs
   const tabsScrollRef = useRef<HTMLDivElement>(null);
@@ -530,6 +508,8 @@ export default function OwnerCabinet() {
 
   const pendingOrdersCount = orders.filter(o => o.status === 'new' || o.status === 'preparing').length;
 
+  const newOrdersCount = orders.filter(o => o.status === 'new').length;
+
   if (!isOwner) {
     return (
       <div id="admin-login-wrapper" className="w-full max-w-md mx-auto bg-stone-50 min-h-screen flex items-center justify-center p-4">
@@ -673,6 +653,14 @@ export default function OwnerCabinet() {
           >
             <ClipboardList size={14} className={activeTab === 'orders' ? 'text-white' : 'text-amber-600'} />
             {t('dashboard.tab_orders')}
+            {newOrdersCount > 0 && (
+              <span
+                id="orders-tab-badge"
+                className="min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-black bg-white text-amber-600 shadow-sm"
+              >
+                {newOrdersCount}
+              </span>
+            )}
           </button>
           <button
             id="tab-btn-menu"
@@ -715,17 +703,6 @@ export default function OwnerCabinet() {
         {/* Tab 1: Orders Monitor */}
         {activeTab === 'orders' && (
           <div id="orders-monitor" className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                Монітор активності кухні
-              </h2>
-              {orders.length > 0 && (
-                <span className="text-xs bg-amber-100 text-amber-800 font-extrabold px-2.5 py-1 rounded-lg">
-                  {orders.length} замовлень в базі
-                </span>
-              )}
-            </div>
-
             {orders.length > 0 ? (
               <div className="flex flex-col gap-4">
                 {orders.map((order) => (
@@ -826,16 +803,14 @@ export default function OwnerCabinet() {
 
                         <button
                           id={`delete-order-${order.id}`}
-                          onClick={async () => {
-                            if (confirm(t('orders.delete_confirm'))) {
-                              try {
-                                await deleteOrder(order.id);
-                              } catch (err) {
+                          onClick={() =>
+                            askConfirm(t('orders.delete_confirm'), () => {
+                              deleteOrder(order.id).catch((err) => {
                                 console.error('Failed to delete order', err);
                                 window.alert(t('common.delete_error'));
-                              }
-                            }
-                          }}
+                              });
+                            })
+                          }
                           className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 hover:border-rose-100 bg-white"
                           title={t('orders.delete_title')}
                         >
@@ -859,19 +834,14 @@ export default function OwnerCabinet() {
         {/* Tab 2: Menu Items Editor */}
         {activeTab === 'menu' && (
           <div id="menu-items-editor" className="flex flex-col gap-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                Каталог страв кафе ({menuItems.length})
-              </h2>
-              <button
-                id="add-new-dish-btn"
-                onClick={openAddMenuForm}
-                className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-md transition-all active:scale-95"
-              >
-                <Plus size={14} />
-                {t('menu.add_item')}
-              </button>
-            </div>
+            <button
+              id="add-new-dish-btn"
+              onClick={openAddMenuForm}
+              className="w-full flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2.5 rounded-xl text-xs shadow-md transition-all active:scale-95"
+            >
+              <Plus size={14} />
+              {t('menu.add_item')}
+            </button>
 
             {/* Menu Items Grid */}
             <div id="admin-menu-grid" className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -927,16 +897,14 @@ export default function OwnerCabinet() {
                           </button>
                           <button
                             id={`delete-dish-btn-${item.id}`}
-                            onClick={async () => {
-                              if (confirm(t('menu.delete_item_confirm'))) {
-                                try {
-                                  await deleteMenuItem(item.id);
-                                } catch (err) {
+                            onClick={() =>
+                              askConfirm(t('menu.delete_item_confirm'), () => {
+                                deleteMenuItem(item.id).catch((err) => {
                                   console.error('Failed to delete dish', err);
                                   window.alert(t('common.delete_error'));
-                                }
-                              }
-                            }}
+                                });
+                              })
+                            }
                             className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 bg-white"
                           >
                             <Trash2 size={12} />
@@ -954,19 +922,14 @@ export default function OwnerCabinet() {
         {/* Tab 3: Categories Editor */}
         {activeTab === 'categories' && (
           <div id="categories-editor" className="flex flex-col gap-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                {t('menu.categories_title')}
-              </h2>
-              <button
-                id="add-new-cat-btn"
-                onClick={openAddCatForm}
-                className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-md transition-all active:scale-95"
-              >
-                <Plus size={14} />
-                {t('cat.add_category')}
-              </button>
-            </div>
+            <button
+              id="add-new-cat-btn"
+              onClick={openAddCatForm}
+              className="w-full flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2.5 rounded-xl text-xs shadow-md transition-all active:scale-95"
+            >
+              <Plus size={14} />
+              {t('cat.add_category')}
+            </button>
 
             <div id="admin-categories-list" className="bg-white border border-stone-200/50 rounded-2xl overflow-hidden shadow-sm">
               <div className="grid grid-cols-1 divide-y divide-stone-100">
@@ -978,14 +941,8 @@ export default function OwnerCabinet() {
                       </span>
                       <div>
                         <h4 className="font-bold text-stone-900 text-sm">
-                          УКР: {cat.nameUa}
+                          {language === 'ua' ? cat.nameUa : language === 'hu' ? (cat.nameHu || cat.nameEn || cat.nameUa) : cat.nameEn}
                         </h4>
-                        <p className="text-xs text-stone-500 font-medium">
-                          ENG: {cat.nameEn}
-                        </p>
-                        <p className="text-xs text-stone-500 font-medium">
-                          HUN: {cat.nameHu || '—'}
-                        </p>
                       </div>
                     </div>
 
@@ -995,23 +952,21 @@ export default function OwnerCabinet() {
                         onClick={() => openEditCatForm(cat)}
                         className="p-2 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors border border-stone-100 bg-white"
                       >
-                        <Edit size={14} />
+                        <Edit size={18} />
                       </button>
                       <button
                         id={`delete-cat-${cat.id}`}
-                        onClick={async () => {
-                          if (confirm(t('cat.delete_confirm'))) {
-                            try {
-                              await deleteCategory(cat.id);
-                            } catch (err) {
+                        onClick={() =>
+                          askConfirm(t('cat.delete_confirm'), () => {
+                            deleteCategory(cat.id).catch((err) => {
                               console.error('Failed to delete category', err);
                               window.alert(t('common.delete_error'));
-                            }
-                          }
-                        }}
+                            });
+                          })
+                        }
                         className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-stone-100 bg-white"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
@@ -1024,27 +979,17 @@ export default function OwnerCabinet() {
         {/* Tab 4: Tables and QR Generator */}
         {activeTab === 'tables' && (
           <div id="tables-generator" className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                {t('tables.title')}
-              </h2>
-              <p className="text-xs text-stone-500 leading-relaxed max-w-2xl">
-                {t('tables.instruction')}
-              </p>
-            </div>
-
             {/* Create Table Form */}
             <form onSubmit={handleCreateTable} className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row gap-3 items-end">
               <div className="flex-1 flex flex-col gap-1.5 w-full">
                 <label htmlFor="new-table-input" className="text-xs font-bold text-stone-500">
-                  {t('tables.add_table')}
+                  {t('tables.label')}
                 </label>
                 <input
                   id="new-table-input"
                   type="text"
                   value={newTableNumber}
                   onChange={(e) => setNewTableNumber(e.target.value)}
-                  placeholder={t('tables.placeholder')}
                   className="bg-stone-50 border border-stone-200 text-sm rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                   required
                 />
@@ -1061,79 +1006,79 @@ export default function OwnerCabinet() {
 
             {/* QR Codes Grid */}
             <div id="qr-codes-grid" className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-              {tables.map((tableId) => {
-                // Point URL specifically with table parameter
-                const guestMenuUrl = `${baseOriginUrl}/?table=${tableId}`;
+              {tables.map((table) => {
+                const label = table.label;
+                const qrSrc = table.qrPath
+                  ? supabase.storage.from('qr-codes').getPublicUrl(table.qrPath).data.publicUrl
+                  : null;
 
                 return (
                   <div 
-                    key={tableId} 
-                    id={`table-qr-card-${tableId}`}
-                    className="bg-white border-2 border-stone-200/60 rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between text-center relative overflow-hidden"
+                    key={table.id} 
+                    id={`table-qr-card-${label}`}
+                    className="bg-white border border-stone-200 rounded-2xl shadow-sm flex overflow-hidden"
                   >
-                    {/* Delete table */}
-                    <button
-                      id={`delete-table-${tableId}`}
-                      onClick={async () => {
-                        if (confirm(t('tables.delete_confirm'))) {
-                          try {
-                            await deleteTable(tableId);
-                          } catch (err) {
-                            console.error('Failed to delete table', err);
-                            window.alert(t('common.delete_error'));
+                    {/* QR Code — full height on the left */}
+                    <div className="bg-stone-50 border-r border-stone-200/60 p-2 flex items-center justify-center shrink-0">
+                      {qrSrc ? (
+                        <img
+                          src={qrSrc}
+                          alt={`QR Code Table ${label}`}
+                          className="w-24 h-24 object-contain"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-24 h-24 flex flex-col items-center justify-center gap-1.5 text-stone-400">
+                          <QrCode size={22} />
+                          <button
+                            id={`generate-qr-btn-${label}`}
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await regenerateTableQr(table.id);
+                              } catch (err) {
+                                console.error('Failed to generate QR', err);
+                                window.alert(t('common.save_error'));
+                              }
+                            }}
+                            className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2 py-1 rounded-md transition-all"
+                          >
+                            {t('tables.generate_qr')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right column: table name + download */}
+                    <div className="flex flex-col justify-between gap-2 p-3 flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-extrabold text-stone-900 text-sm truncate">
+                          {t('tables.table_label')} {label}
+                        </span>
+                        <button
+                          id={`delete-table-${label}`}
+                          onClick={() =>
+                            askConfirm(t('tables.delete_confirm'), () => {
+                              deleteTable(label).catch((err) => {
+                                console.error('Failed to delete table', err);
+                                window.alert(t('common.delete_error'));
+                              });
+                            })
                           }
-                        }
-                      }}
-                      className="absolute top-3 right-3 p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 bg-white shadow-sm"
-                      title={t('tables.delete_title')}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-
-                    {/* Flyer Content */}
-                    <div className="flex flex-col items-center gap-2 mb-4 w-full">
-                      <div className="w-12 h-12 bg-amber-600 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-md shadow-amber-200">
-                        {tableId}
+                          className="shrink-0 p-2 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-stone-200 bg-white shadow-sm transition-colors"
+                          title={t('tables.delete_title')}
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
-                      <h4 className="font-extrabold text-stone-900 text-sm uppercase tracking-wide mt-1">
-                        {t('tables.print_title')}
-                      </h4>
-                      <p className="text-xs text-stone-400 font-semibold tracking-wide uppercase leading-none">
-                        Стіл №{tableId}
-                      </p>
-                    </div>
 
-                    {/* QR Code Frame */}
-                    <div className="bg-stone-50 border border-stone-200/60 p-4 rounded-2xl shadow-inner mb-4 relative group">
-                      <img
-                        src={qrDataUrls[tableId]}
-                        alt={`QR Code Table ${tableId}`}
-                        className="w-40 h-40 object-contain mx-auto"
-                        loading="lazy"
-                      />
-                    </div>
-
-                    <p className="text-stone-500 text-xs italic mb-4 font-medium leading-normal max-w-[200px]">
-                      {t('tables.print_scan')}
-                    </p>
-
-                    {/* Simulation buttons */}
-                    <div className="w-full flex flex-col gap-2 pt-2 border-t border-stone-100">
                       <button
-                        id={`download-qr-btn-${tableId}`}
-                        onClick={() => downloadQRCode(tableId)}
-                        className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 border border-amber-200/40 shadow-sm"
+                        id={`download-qr-btn-${label}`}
+                        onClick={() => downloadQRCode(label)}
+                        className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-1 border border-amber-200/40"
                       >
-                        <Download size={13} />
+                        <Download size={12} />
                         {t('tables.download_qr')}
-                      </button>
-                      <button
-                        id={`simulate-scan-btn-${tableId}`}
-                        onClick={() => window.open(guestMenuUrl, '_blank')}
-                        className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 border border-stone-200/40"
-                      >
-                        <ExternalLink size={12} />
-                        {t('tables.open_menu_simulation')}
                       </button>
                     </div>
                   </div>
@@ -1477,6 +1422,50 @@ export default function OwnerCabinet() {
               </form>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* In-app confirm dialog (replaces native confirm()) */}
+      <AnimatePresence>
+        {confirmDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-xs w-full p-6 shadow-2xl flex flex-col gap-5 text-stone-800"
+            >
+              <p className="text-sm font-semibold text-stone-800 text-center leading-relaxed">
+                {confirmDialog.message}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  id="confirm-cancel-btn"
+                  type="button"
+                  onClick={() => setConfirmDialog(null)}
+                  className="flex-1 bg-white border border-stone-200 text-stone-700 font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all hover:bg-stone-50 active:scale-95"
+                >
+                  {t('menu.cancel')}
+                </button>
+                <button
+                  id="confirm-ok-btn"
+                  type="button"
+                  onClick={() => {
+                    setConfirmDialog(null);
+                    confirmDialog.onConfirm();
+                  }}
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md active:scale-95"
+                >
+                  {t('common.delete')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

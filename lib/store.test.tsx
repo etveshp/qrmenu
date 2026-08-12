@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, act, waitFor } from '@testing-library/react';
+import { render, act, waitFor, cleanup } from '@testing-library/react';
 import { useEffect } from 'react';
 import { createSupabaseFake } from './__fixtures__/supabase-fake';
 import type { FakeRow } from './__fixtures__/supabase-fake';
@@ -10,6 +10,7 @@ import type { OrderItem } from './store';
 // created below (value imports are dynamic to avoid the hoisting trap).
 const mock = createSupabaseFake();
 vi.mock('./supabase/client', () => ({ supabase: mock.supabase }));
+vi.mock('qrcode', () => ({ default: { toDataURL: async () => 'data:image/png;base64,QUJD' } }));
 
 const { QRMenuProvider, useQRMenu } = await import('./store');
 
@@ -121,7 +122,7 @@ describe('menu data loading', () => {
       isAvailable: true,
     });
     // numeric sort of labels
-    expect(store.tables).toEqual(['3', '10']);
+    expect(store.tables.map((t) => t.label)).toEqual(['3', '10']);
     expect(store.isLoading).toBe(false);
   });
 });
@@ -200,7 +201,7 @@ describe('orders', () => {
   it('creates an order as a guest: uuid, computed total, items snapshot', async () => {
     mock.state.db.tables.push({ id: 't-3', label: '3' });
     renderStore();
-    await waitFor(() => expect(store.tables).toEqual(['3']));
+    await waitFor(() => expect(store.tables.map((t) => t.label)).toEqual(['3']));
 
     let id = '';
     await act(async () => {
@@ -329,6 +330,28 @@ describe('owner auth', () => {
     });
     expect(res?.error).toBeNull();
   });
+
+  it('persists the sound preference to the DB and restores it on remount', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+    expect(store.soundEnabled).toBe(true);
+
+    // Toggle off -> written to the settings table
+    await act(async () => {
+      store.setSoundEnabled(false);
+    });
+    await waitFor(() => {
+      const rows = mock.state.db.settings as { key: string; value: { sound_enabled: boolean } }[];
+      expect(rows.find((r) => r.key === 'owner')?.value.sound_enabled).toBe(false);
+    });
+
+    // A fresh provider (e.g. after navigating to another page) restores it
+    cleanup();
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+    await waitFor(() => expect(store.soundEnabled).toBe(false));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -344,8 +367,39 @@ describe('tables', () => {
     await act(async () => {
       await store.addTable('VIP-1');
     });
-    expect(store.tables).toEqual(['10', 'VIP-1']);
+    expect(store.tables.map((t) => t.label)).toEqual(['10', 'VIP-1']);
     expect(mock.state.db.tables).toHaveLength(2);
+  });
+
+  it('generates and stores a QR code for a new table (persisted in DB)', async () => {
+    renderStore();
+    await act(async () => {
+      await store.addTable('7');
+    });
+    const added = store.tables.find((t) => t.label === '7');
+    expect(added?.qrPath).toMatch(/^qr-.*\.png$/);
+    // The path must survive a reload, i.e. be written to the tables row
+    const dbRow = (mock.state.db.tables as FakeRow[]).find((t) => t.label === '7');
+    expect(dbRow?.qr_path).toMatch(/^qr-.*\.png$/);
+  });
+
+  it('keeps unique table ids after add + delete (no duplicate React keys)', async () => {
+    renderStore();
+    await act(async () => {
+      await store.addTable('A');
+    });
+    await act(async () => {
+      await store.addTable('B');
+    });
+    const ids = store.tables.map((t) => t.id).filter(Boolean);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    await act(async () => {
+      await store.deleteTable('A');
+    });
+    const remaining = store.tables.map((t) => t.id).filter(Boolean);
+    expect(new Set(remaining).size).toBe(remaining.length);
+    expect(store.tables.map((t) => t.label)).toEqual(['B']);
   });
 
   it('ignores duplicates and empty labels', async () => {
@@ -359,14 +413,14 @@ describe('tables', () => {
     await act(async () => {
       await store.addTable('   ');
     });
-    expect(store.tables).toEqual(['3']);
+    expect(store.tables.map((t) => t.label)).toEqual(['3']);
     expect(mock.state.db.tables).toHaveLength(1);
   });
 
   it('deletes a table', async () => {
     mock.state.db.tables.push({ id: 't-1', label: '3' });
     renderStore();
-    await waitFor(() => expect(store.tables).toEqual(['3']));
+    await waitFor(() => expect(store.tables.map((t) => t.label)).toEqual(['3']));
 
     await act(async () => {
       await store.deleteTable('3');
