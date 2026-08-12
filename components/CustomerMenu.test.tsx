@@ -40,9 +40,15 @@ afterEach(() => {
 });
 
 describe('CustomerMenu', () => {
-  it('renders dishes loaded from Supabase', async () => {
+  it('renders category tiles first, then dishes inside a category', async () => {
     seed();
     renderGuest();
+    // Home shows the category tile, not the dishes yet
+    expect(await screen.findByRole('button', { name: /Піца/ })).toBeInTheDocument();
+    expect(screen.queryByText('Піца Маргарита')).not.toBeInTheDocument();
+
+    // Open the category -> dishes appear
+    await userEvent.click(screen.getByRole('button', { name: /Піца/ }));
     expect(await screen.findByText('Піца Маргарита')).toBeInTheDocument();
   });
 
@@ -50,6 +56,8 @@ describe('CustomerMenu', () => {
     const user = userEvent.setup();
     seed();
     renderGuest();
+    await screen.findByRole('button', { name: /Піца/ });
+    await user.click(screen.getByRole('button', { name: /Піца/ }));
     await screen.findByText('Піца Маргарита');
 
     // Add 1 pc and confirm
@@ -91,6 +99,8 @@ describe('CustomerMenu', () => {
     vi.stubGlobal('location', { ...window.location, search: '?table=3' });
     try {
       renderGuest();
+      await screen.findByRole('button', { name: /Піца/ });
+      await user.click(screen.getByRole('button', { name: /Піца/ }));
       await screen.findByText('Піца Маргарита');
 
       await user.click(screen.getByTitle('Додати до замовлення'));

@@ -16,7 +16,7 @@ import {
   Info,
   Utensils,
   Coffee,
-  LayoutGrid,
+  ChevronLeft,
   AlertTriangle
 } from 'lucide-react';
 
@@ -37,7 +37,7 @@ export default function CustomerMenu() {
     }
     return '';
   });
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [cart, setCart] = useState<Record<string, number>>({});
   const [expandedDishes, setExpandedDishes] = useState<Record<string, boolean>>({});
@@ -49,62 +49,24 @@ export default function CustomerMenu() {
   const [activeQtyDishId, setActiveQtyDishId] = useState<string | null>(null);
   const [pendingQty, setPendingQty] = useState<number>(1);
 
-  // Swipe/drag-scroll for categories
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const isDown = useRef(false);
-  const startX = useRef(0);
-  const scrollLeft = useRef(0);
-  const dragMoved = useRef(false);
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!scrollRef.current) return;
-    isDown.current = true;
-    dragMoved.current = false;
-    startX.current = e.pageX - scrollRef.current.offsetLeft;
-    scrollLeft.current = scrollRef.current.scrollLeft;
-  };
-
-  const handleMouseLeave = () => {
-    isDown.current = false;
-  };
-
-  const handleMouseUp = () => {
-    isDown.current = false;
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDown.current || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX.current) * 1.5; // scroll speed
-    if (Math.abs(x - startX.current) > 5) {
-      dragMoved.current = true;
-    }
-    scrollRef.current.scrollLeft = scrollLeft.current - walk;
-  };
-
-  const handleCategoryClick = (catId: string, e: React.MouseEvent) => {
-    if (dragMoved.current) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    setActiveCategory(catId);
-  };
-
-  // Filter items
-  const filteredItems = menuItems.filter((item) => {
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
-    
+  // Filter items: category view filters within the category; on the home
+  // screen a non-empty search shows cross-category results.
+  const matchesQuery = (item: MenuItem) => {
     const query = searchQuery.toLowerCase();
+    if (!query) return true;
     const name = language === 'ua' ? item.nameUa.toLowerCase() : item.nameEn.toLowerCase();
     const desc = language === 'ua' ? item.descriptionUa.toLowerCase() : item.descriptionEn.toLowerCase();
     const ingr = language === 'ua' ? item.ingredientsUa.toLowerCase() : item.ingredientsEn.toLowerCase();
-    
-    const matchesSearch = name.includes(query) || desc.includes(query) || ingr.includes(query);
-    
-    return matchesCategory && matchesSearch;
-  });
+    return name.includes(query) || desc.includes(query) || ingr.includes(query);
+  };
+
+  const inCategoryView = activeCategory !== null;
+  const activeCat = activeCategory ? (categories.find((c) => c.id === activeCategory) ?? null) : null;
+  const filteredItems = inCategoryView
+    ? menuItems.filter((i) => i.category === activeCategory && matchesQuery(i))
+    : searchQuery
+      ? menuItems.filter(matchesQuery)
+      : [];
 
   // Cart operations
   const addToCart = (id: string) => {
@@ -275,53 +237,61 @@ export default function CustomerMenu() {
           )}
         </div>
 
-        {/* Categories */}
-        <div id="customer-categories-section">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-extrabold tracking-wider text-stone-400 uppercase">
-              {t('menu.categories')}
-            </h2>
-          </div>
-          <div 
-            ref={scrollRef}
-            id="categories-scroll" 
-            onMouseDown={handleMouseDown}
-            onMouseLeave={handleMouseLeave}
-            onMouseUp={handleMouseUp}
-            onMouseMove={handleMouseMove}
-            className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide select-none cursor-grab active:cursor-grabbing"
-          >
+        {/* Category navigation: tiles grid on home, header inside a category */}
+        {inCategoryView ? (
+          <div id="category-header" className="flex items-center gap-2">
             <button
-              id="cat-pill-all"
-              onClick={(e) => handleCategoryClick('all', e)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-sm ${
-                activeCategory === 'all'
-                  ? 'bg-amber-600 text-white shadow-amber-200 animate-none'
-                  : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200/50'
-              }`}
+              id="back-to-categories-btn"
+              onClick={() => {
+                setActiveCategory(null);
+                setSearchQuery('');
+              }}
+              className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-stone-200/60 shadow-sm text-stone-700 hover:bg-stone-100 text-xs font-bold transition-all active:scale-95"
             >
-              <LayoutGrid size={14} />
-              <span>{t('menu.all')}</span>
+              <ChevronLeft size={16} />
+              {t('menu.categories')}
             </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                id={`cat-pill-${cat.id}`}
-                onClick={(e) => handleCategoryClick(cat.id, e)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-sm ${
-                  activeCategory === cat.id
-                    ? 'bg-amber-600 text-white shadow-amber-200 animate-none'
-                    : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200/50'
-                }`}
-              >
-                <span>{cat.icon}</span>
-                <span>{language === 'ua' ? cat.nameUa : language === 'hu' ? (cat.nameHu || cat.nameEn || cat.nameUa) : cat.nameEn}</span>
-              </button>
-            ))}
+            {activeCat && (
+              <span className="text-sm font-extrabold text-stone-800 truncate flex items-center gap-1.5">
+                <span>{activeCat.icon}</span>
+                <span>{language === 'ua' ? activeCat.nameUa : language === 'hu' ? (activeCat.nameHu || activeCat.nameEn || activeCat.nameUa) : activeCat.nameEn}</span>
+              </span>
+            )}
           </div>
-        </div>
+        ) : (
+          <div id="customer-categories-grid" className="grid grid-cols-2 gap-3">
+            {categories.map((cat) => {
+              const cover =
+                menuItems.find((i) => i.category === cat.id && i.image)?.image ||
+                'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80';
+              return (
+                <button
+                  key={cat.id}
+                  id={`cat-tile-${cat.id}`}
+                  onClick={() => setActiveCategory(cat.id)}
+                  className="relative h-28 rounded-2xl overflow-hidden shadow-sm border border-stone-200/60 text-left group active:scale-[0.98] transition-transform"
+                >
+                  <img
+                    src={cover}
+                    alt=""
+                    loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                  <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between gap-1">
+                    <span className="text-white font-extrabold text-sm leading-tight drop-shadow">
+                      {language === 'ua' ? cat.nameUa : language === 'hu' ? (cat.nameHu || cat.nameEn || cat.nameUa) : cat.nameEn}
+                    </span>
+                    <span className="text-base drop-shadow">{cat.icon}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Dishes List */}
+        {/* Dishes List (category view or search results) */}
+        {(inCategoryView || searchQuery) && (
         <div id="dishes-list" className="flex flex-col gap-4">
           {filteredItems.length > 0 ? (
             filteredItems.map((dish) => {
@@ -508,6 +478,7 @@ export default function CustomerMenu() {
             </div>
           )}
         </div>
+        )}
       </main>
 
       {/* Persistent Shopping Cart Trigger Button */}
