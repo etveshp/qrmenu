@@ -26,8 +26,7 @@ import {
   ClipboardList,
   Utensils,
   FolderTree,
-  QrCode,
-  RefreshCw
+  QrCode
 } from 'lucide-react';
 
 // Preset Food Photo list
@@ -1058,40 +1057,23 @@ export default function OwnerCabinet() {
                         <span className="font-extrabold text-stone-900 text-sm truncate">
                           {t('tables.table_label')} {label}
                         </span>
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <button
-                            id={`regenerate-qr-btn-${label}`}
-                            onClick={async () => {
+                        <button
+                          id={`delete-table-${label}`}
+                          onClick={async () => {
+                            if (confirm(t('tables.delete_confirm'))) {
                               try {
-                                await regenerateTableQr(table.id);
+                                await deleteTable(label);
                               } catch (err) {
-                                console.error('Failed to regenerate QR', err);
-                                window.alert(t('common.save_error'));
+                                console.error('Failed to delete table', err);
+                                window.alert(t('common.delete_error'));
                               }
-                            }}
-                            className="p-1 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
-                            title={t('tables.regenerate_qr')}
-                          >
-                            <RefreshCw size={14} />
-                          </button>
-                          <button
-                            id={`delete-table-${label}`}
-                            onClick={async () => {
-                              if (confirm(t('tables.delete_confirm'))) {
-                                try {
-                                  await deleteTable(label);
-                                } catch (err) {
-                                  console.error('Failed to delete table', err);
-                                  window.alert(t('common.delete_error'));
-                                }
-                              }
-                            }}
-                            className="p-1 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
-                            title={t('tables.delete_title')}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                            }
+                          }}
+                          className="shrink-0 p-2 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-stone-200 bg-white shadow-sm transition-colors"
+                          title={t('tables.delete_title')}
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
 
                       <button
