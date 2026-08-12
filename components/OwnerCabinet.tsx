@@ -1011,14 +1011,13 @@ export default function OwnerCabinet() {
             <form onSubmit={handleCreateTable} className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row gap-3 items-end">
               <div className="flex-1 flex flex-col gap-1.5 w-full">
                 <label htmlFor="new-table-input" className="text-xs font-bold text-stone-500">
-                  {t('tables.add_table')}
+                  {t('tables.label')}
                 </label>
                 <input
                   id="new-table-input"
                   type="text"
                   value={newTableNumber}
                   onChange={(e) => setNewTableNumber(e.target.value)}
-                  placeholder={t('tables.placeholder')}
                   className="bg-stone-50 border border-stone-200 text-sm rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                   required
                 />

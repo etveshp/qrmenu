@@ -326,6 +326,7 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   // Table Generator & QR
   'tables.title': { ua: 'Генератор QR-кодів для столиків', en: 'QR Code Table Generator', hu: 'QR-kód generátor asztalokhoz' },
   'tables.add_table': { ua: 'Додати столик', en: 'Add Table', hu: 'Asztal hozzáadása' },
+  'tables.label': { ua: 'Номер або назва столика', en: 'Table number or name', hu: 'Asztal száma vagy neve' },
   'tables.placeholder': { ua: 'Номер або ім\'я столика (наприклад, 6 або VIP-1)', en: 'Table number or name (e.g., 6 or VIP-1)', hu: 'Asztal száma vagy neve (pl. 6 vagy VIP-1)' },
   'tables.print_title': { ua: 'QR-код для безконтактного замовлення', en: 'QR Code for Touchless Ordering', hu: 'QR-kód az érintésmentes rendeléshez' },
   'tables.print_scan': { ua: 'Відскануйте, щоб відкрити меню', en: 'Scan to open the menu', hu: 'Szkennelje be a menü megnyitásához' },
