@@ -3,10 +3,10 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { QRMenuProvider, useQRMenu } from '../lib/store';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import ViewSwitcher from '../components/ViewSwitcher';
 import CustomerMenu from '../components/CustomerMenu';
 import OwnerCabinet from '../components/OwnerCabinet';
 import { motion, AnimatePresence } from 'motion/react';
-import { Utensils, Sliders, Globe } from 'lucide-react';
 
 function MainAppContent() {
   const { t } = useQRMenu();
@@ -35,33 +35,8 @@ function MainAppContent() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Main View Toggle */}
-          <div id="view-mode-toggle" className="inline-flex bg-stone-100 p-1 rounded-xl border border-stone-200/40">
-            <button
-              id="view-toggle-guest"
-              onClick={() => setView('guest')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${
-                view === 'guest'
-                  ? 'bg-white text-amber-700 shadow-sm'
-                  : 'text-stone-500 hover:text-stone-800'
-              }`}
-            >
-              <Utensils size={13} />
-              <span className="hidden sm:inline">{t('app.menu_btn')}</span>
-            </button>
-            <button
-              id="view-toggle-owner"
-              onClick={() => setView('owner')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${
-                view === 'owner'
-                  ? 'bg-white text-amber-700 shadow-sm'
-                  : 'text-stone-500 hover:text-stone-800'
-              }`}
-            >
-              <Sliders size={13} />
-              <span className="hidden sm:inline">{t('app.owner_btn')}</span>
-            </button>
-          </div>
+          {/* Main View Toggle (same pattern as the language switcher, dark accent) */}
+          <ViewSwitcher view={view} onChange={setView} />
 
           <LanguageSwitcher />
         </div>
