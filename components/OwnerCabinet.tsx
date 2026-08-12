@@ -17,7 +17,6 @@ import {
   UtensilsCrossed, 
   FileText,
   Clock,
-  ExternalLink,
   Download,
   Camera,
   Upload,
@@ -1061,12 +1060,12 @@ export default function OwnerCabinet() {
                     </button>
 
                     {/* Table badge */}
-                    <div className="flex flex-col items-center gap-1 shrink-0 w-14">
+                    <div className="flex flex-col items-center gap-1 shrink-0 w-16">
                       <div className="w-10 h-10 bg-amber-600 text-white rounded-xl flex items-center justify-center font-black text-lg shadow-sm">
-                        {label}
+                        {label.charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wide whitespace-nowrap">
-                        Стіл №{label}
+                      <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wide leading-tight text-center break-words">
+                        {label}
                       </span>
                     </div>
 
@@ -1106,18 +1105,10 @@ export default function OwnerCabinet() {
                       <button
                         id={`download-qr-btn-${label}`}
                         onClick={() => downloadQRCode(label)}
-                        className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 border border-amber-200/40"
+                        className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-1 border border-amber-200/40"
                       >
                         <Download size={12} />
                         {t('tables.download_qr')}
-                      </button>
-                      <button
-                        id={`simulate-scan-btn-${label}`}
-                        onClick={() => window.open(guestMenuUrl, '_blank')}
-                        className="w-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-bold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 border border-stone-200/40"
-                      >
-                        <ExternalLink size={11} />
-                        {t('tables.open_menu_simulation')}
                       </button>
                     </div>
                   </div>
