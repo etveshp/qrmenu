@@ -1007,15 +1007,6 @@ export default function OwnerCabinet() {
         {/* Tab 4: Tables and QR Generator */}
         {activeTab === 'tables' && (
           <div id="tables-generator" className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                {t('tables.title')}
-              </h2>
-              <p className="text-xs text-stone-500 leading-relaxed max-w-2xl">
-                {t('tables.instruction')}
-              </p>
-            </div>
-
             {/* Create Table Form */}
             <form onSubmit={handleCreateTable} className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row gap-3 items-end">
               <div className="flex-1 flex flex-col gap-1.5 w-full">
