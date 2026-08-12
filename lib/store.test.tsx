@@ -380,6 +380,25 @@ describe('tables', () => {
     expect(added?.qrPath).toMatch(/^qr-.*\.png$/);
   });
 
+  it('keeps unique table ids after add + delete (no duplicate React keys)', async () => {
+    renderStore();
+    await act(async () => {
+      await store.addTable('A');
+    });
+    await act(async () => {
+      await store.addTable('B');
+    });
+    const ids = store.tables.map((t) => t.id).filter(Boolean);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    await act(async () => {
+      await store.deleteTable('A');
+    });
+    const remaining = store.tables.map((t) => t.id).filter(Boolean);
+    expect(new Set(remaining).size).toBe(remaining.length);
+    expect(store.tables.map((t) => t.label)).toEqual(['B']);
+  });
+
   it('ignores duplicates and empty labels', async () => {
     renderStore();
     await act(async () => {

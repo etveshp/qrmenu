@@ -484,11 +484,11 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
 
       setCategories(catRes.data.map(toCategory));
       setMenuItems(itemRes.data.map(toMenuItem));
-      const tableRows = tabRes.data as { id: string; label: string; qr_path: string | null }[];
-      tableUuidByLabel.current = new Map(tableRows.map((r) => [r.label, r.id]));
+      const tableRows = tabRes.data as { id?: string; label: string; qr_path: string | null }[];
+      tableUuidByLabel.current = new Map(tableRows.map((r) => [r.label, r.id ?? newId()]));
       setTables(
         sortTables(
-          tableRows.map((r) => ({ id: r.id, label: r.label, qrPath: r.qr_path ?? null }))
+          tableRows.map((r) => ({ id: r.id ?? newId(), label: r.label, qrPath: r.qr_path ?? null }))
         )
       );
     } catch (err) {
@@ -741,9 +741,10 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
       .select()
       .single();
     if (error) throw error;
-    const row = data as { id: string; label: string };
-    tableUuidByLabel.current.set(row.label, row.id);
-    const newTable: TableInfo = { id: row.id, label: row.label, qrPath: null };
+    const row = (data ?? {}) as { id?: string; label: string };
+    const tableId = row.id ?? newId();
+    tableUuidByLabel.current.set(row.label, tableId);
+    const newTable: TableInfo = { id: tableId, label: row.label, qrPath: null };
     setTables((prev) => sortTables([...prev, newTable]));
     // Generate and store the QR right away (best effort — a manual
     // "regenerate" button is also available in the cabinet).
