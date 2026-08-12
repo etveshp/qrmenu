@@ -11,7 +11,7 @@ import OwnerCabinet from '../components/OwnerCabinet';
 import { motion, AnimatePresence } from 'motion/react';
 
 function MainAppContent() {
-  const { t } = useQRMenu();
+  const { t, isOwner } = useQRMenu();
   const [view, setView] = useState<'guest' | 'owner' | 'profile'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -28,22 +28,32 @@ function MainAppContent() {
       {/* Top utility bar */}
       <div id="top-utility-bar" className="sticky top-0 w-full bg-white/95 backdrop-blur-md border-b border-stone-200/50 py-2.5 px-4 flex items-center justify-between shadow-sm z-30">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold text-sm">
-            🍳
-          </div>
-          <span className="font-extrabold text-stone-900 tracking-tight text-xs sm:text-sm">
-            {t('app.name')}
-          </span>
+          {/* Logo doubles as the discreet entry to the owner cabinet */}
+          <button
+            id="app-logo-btn"
+            type="button"
+            onClick={() => setView('owner')}
+            title={t('app.owner_btn')}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold text-sm">
+              🍳
+            </div>
+            <span className="font-extrabold text-stone-900 tracking-tight text-xs sm:text-sm">
+              {t('app.name')}
+            </span>
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Main View Toggle (same pattern as the language switcher, dark accent) */}
-          <ViewSwitcher view={view === 'profile' ? 'owner' : view} onChange={setView} />
+          {/* Admin-only controls; guests see only the language switcher */}
+          {isOwner && (
+            <ViewSwitcher view={view === 'profile' ? 'owner' : view} onChange={setView} />
+          )}
 
           <LanguageSwitcher />
 
-          {/* More actions: sound, admin profile, sign out */}
-          <MoreMenu onOpenProfile={() => setView('profile')} />
+          {isOwner && <MoreMenu onOpenProfile={() => setView('profile')} />}
         </div>
       </div>
 
