@@ -725,6 +725,12 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
       .from('qr-codes')
       .upload(path, dataUrlToBlob(dataUrl), { contentType: 'image/png', upsert: true });
     if (uploadError) throw uploadError;
+    // Persist the path so it survives reloads and can be removed on delete.
+    const { error: updateError } = await supabase
+      .from('tables')
+      .update({ qr_path: path })
+      .eq('id', id);
+    if (updateError) throw updateError;
     setTables((prev) => prev.map((t) => (t.id === id ? { ...t, qrPath: path } : t)));
   };
 
@@ -760,10 +766,12 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
   const deleteTable = async (label: string) => {
     const table = tables.find((t) => t.label === label);
     if (table?.qrPath) {
+      // Remove the stored QR file first — abort the whole delete if it fails,
+      // so nothing is left behind "somewhere".
       const { error: rmError } = await supabase.storage
         .from('qr-codes')
         .remove([table.qrPath]);
-      if (rmError) console.error('Failed to remove QR file', rmError);
+      if (rmError) throw rmError;
     }
     const { error } = await supabase.from('tables').delete().eq('label', label);
     if (error) throw error;

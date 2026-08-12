@@ -371,13 +371,16 @@ describe('tables', () => {
     expect(mock.state.db.tables).toHaveLength(2);
   });
 
-  it('generates and stores a QR code for a new table', async () => {
+  it('generates and stores a QR code for a new table (persisted in DB)', async () => {
     renderStore();
     await act(async () => {
       await store.addTable('7');
     });
     const added = store.tables.find((t) => t.label === '7');
     expect(added?.qrPath).toMatch(/^qr-.*\.png$/);
+    // The path must survive a reload, i.e. be written to the tables row
+    const dbRow = (mock.state.db.tables as FakeRow[]).find((t) => t.label === '7');
+    expect(dbRow?.qr_path).toMatch(/^qr-.*\.png$/);
   });
 
   it('keeps unique table ids after add + delete (no duplicate React keys)', async () => {
