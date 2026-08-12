@@ -24,8 +24,8 @@ export default function MoreMenu({ onOpenProfile }: { onOpenProfile: () => void 
   }, []);
 
   const handleSound = () => {
+    // Keep the menu open so the toggled state is visible
     setSoundEnabled(!soundEnabled);
-    setIsOpen(false);
   };
 
   const handleProfile = () => {
@@ -59,7 +59,7 @@ export default function MoreMenu({ onOpenProfile }: { onOpenProfile: () => void 
             title={t('header.more')}
             className="w-10 h-10 rounded-full bg-stone-600 hover:bg-stone-700 transition-colors flex items-center justify-center text-white shadow-[0_2px_8px_rgba(87,83,78,0.35)]"
           >
-            <MoreVertical size={17} />
+            <MoreVertical size={18} />
           </button>
         ) : (
           // Expanded state: vertical capsule — kebab icon stays on top,
@@ -71,7 +71,7 @@ export default function MoreMenu({ onOpenProfile }: { onOpenProfile: () => void 
               title={t('header.more')}
               onClick={() => setIsOpen(false)}
             >
-              <MoreVertical size={16} />
+              <MoreVertical size={18} />
             </button>
 
             <button
@@ -83,7 +83,7 @@ export default function MoreMenu({ onOpenProfile }: { onOpenProfile: () => void 
                 soundEnabled ? 'text-amber-600' : 'text-stone-400 hover:text-stone-700'
               }`}
             >
-              {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+              {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
 
             <button
@@ -93,7 +93,7 @@ export default function MoreMenu({ onOpenProfile }: { onOpenProfile: () => void 
               onClick={handleProfile}
               className="w-8 h-8 flex items-center justify-center transition-colors duration-200 cursor-pointer rounded-full text-stone-600 hover:text-stone-900 hover:bg-stone-100"
             >
-              <UserRound size={15} />
+              <UserRound size={18} />
             </button>
 
             {/* Separator before sign out */}
@@ -106,7 +106,7 @@ export default function MoreMenu({ onOpenProfile }: { onOpenProfile: () => void 
               onClick={handleLogout}
               className="w-8 h-8 flex items-center justify-center transition-colors duration-200 cursor-pointer rounded-full text-stone-600 hover:text-rose-600 hover:bg-rose-50"
             >
-              <LogOut size={15} />
+              <LogOut size={18} />
             </button>
           </div>
         )}
