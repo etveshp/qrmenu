@@ -948,19 +948,14 @@ export default function OwnerCabinet() {
         {/* Tab 3: Categories Editor */}
         {activeTab === 'categories' && (
           <div id="categories-editor" className="flex flex-col gap-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-extrabold uppercase tracking-widest text-stone-400">
-                {t('menu.categories_title')}
-              </h2>
-              <button
-                id="add-new-cat-btn"
-                onClick={openAddCatForm}
-                className="flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-md transition-all active:scale-95"
-              >
-                <Plus size={14} />
-                {t('cat.add_category')}
-              </button>
-            </div>
+            <button
+              id="add-new-cat-btn"
+              onClick={openAddCatForm}
+              className="w-full flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2.5 rounded-xl text-xs shadow-md transition-all active:scale-95"
+            >
+              <Plus size={14} />
+              {t('cat.add_category')}
+            </button>
 
             <div id="admin-categories-list" className="bg-white border border-stone-200/50 rounded-2xl overflow-hidden shadow-sm">
               <div className="grid grid-cols-1 divide-y divide-stone-100">
