@@ -278,7 +278,7 @@ export default function CustomerMenu() {
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-                  <span className="absolute bottom-2 left-2.5 right-2.5 text-white font-extrabold text-sm leading-tight drop-shadow">
+                  <span className="absolute bottom-2 left-2.5 right-2.5 text-white font-semibold text-sm leading-tight drop-shadow">
                     {language === 'ua' ? cat.nameUa : language === 'hu' ? (cat.nameHu || cat.nameEn || cat.nameUa) : cat.nameEn}
                   </span>
                 </button>

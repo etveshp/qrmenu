@@ -34,6 +34,7 @@ Client-side QR-menu web app for cafés: guest menu view, owner cabinet (dish/cat
 - **Persistence**: data in Supabase (RLS: anon reads menu + creates orders; owner manages). Language only in `localStorage` (`qr_menu_lang`). Do not reintroduce localStorage for menu/orders/tables.
 - **Owner auth**: Supabase email+password; owner cabinet is gated by `isOwner`. No hardcoded passwords.
 - UI: Tailwind utility classes inline; stone/amber palette; `motion` + `AnimatePresence` for transitions.
+- **Git workflow**: commit with a descriptive message after each change; do **not** push to GitHub after every commit — push only when the user asks or when releasing to production (merge `main` → `production` + deploy hook `?buildCache=false`).
 - Dish/category images are remote URLs (unsplash) — keep them remote; don't add local image upload.
 
 ## Notes

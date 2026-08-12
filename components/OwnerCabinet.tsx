@@ -20,7 +20,6 @@ import {
   ExternalLink,
   Download,
   Camera,
-  LogOut,
   Upload,
   Sliders,
   DollarSign,
@@ -28,9 +27,7 @@ import {
   ClipboardList,
   Utensils,
   FolderTree,
-  QrCode,
-  Settings,
-  KeyRound
+  QrCode
 } from 'lucide-react';
 
 // Preset Food Photo list
@@ -74,9 +71,8 @@ export default function OwnerCabinet() {
     isOwner,
     ownerEmail,
     isLoading,
+    soundEnabled,
     signIn,
-    signOut,
-    changePassword,
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
@@ -94,17 +90,10 @@ export default function OwnerCabinet() {
   const [password, setPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<boolean>(false);
 
-  // Change-password modal state
-  const [isPwdModalOpen, setIsPwdModalOpen] = useState<boolean>(false);
-  const [newPassword, setNewPassword] = useState<string>('');
-  const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const [pwdStatus, setPwdStatus] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-
   // Tabs: 'orders', 'menu', 'categories', 'tables'
   const [activeTab, setActiveTab] = useState<'orders' | 'menu' | 'categories' | 'tables'>('orders');
 
-  // Sound settings
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  // Sound toggle is now shared (header More menu)
   const prevOrdersCountRef = useRef<number>(0);
 
   // Menu editor modal/form state
@@ -390,40 +379,6 @@ export default function OwnerCabinet() {
     }
   };
 
-  const handleLogout = () => {
-    signOut().catch((err) => console.error('Logout failed', err));
-  };
-
-  // Change password (Supabase Auth updateUser)
-  const openChangePassword = () => {
-    setNewPassword('');
-    setConfirmPassword('');
-    setPwdStatus(null);
-    setIsPwdModalOpen(true);
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPwdStatus(null);
-    if (newPassword.length < 6) {
-      setPwdStatus({ type: 'error', text: t('dashboard.password_short') });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPwdStatus({ type: 'error', text: t('dashboard.passwords_dont_match') });
-      return;
-    }
-    const { error } = await changePassword(newPassword);
-    if (error) {
-      console.error('Change password failed', error);
-      setPwdStatus({ type: 'error', text: t('dashboard.password_change_error') });
-      return;
-    }
-    setPwdStatus({ type: 'success', text: t('dashboard.password_changed') });
-    setNewPassword('');
-    setConfirmPassword('');
-  };
-
   const downloadQRCode = async (tableId: string) => {
     try {
       const guestMenuUrl = `${baseOriginUrl}/?table=${tableId}`;
@@ -648,60 +603,16 @@ export default function OwnerCabinet() {
   return (
     <div id="admin-panel-container" className="w-full max-w-4xl mx-auto bg-stone-50 min-h-screen text-stone-800 pb-10">
       
-      {/* Header */}
-      <header id="admin-header" className="bg-white border-b border-stone-200/60 sticky top-0 z-30 px-4 md:px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-amber-600 text-white rounded-xl flex items-center justify-center">
-            <Settings size={18} />
-          </div>
-          <div className="flex flex-col justify-center">
-            <h1 className="font-extrabold text-stone-900 text-base leading-tight whitespace-pre-line">
-              {t('dashboard.title').replace(' ', '\n')}
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Sound toggle */}
-          <button
-            id="sound-toggle-btn"
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`p-2 rounded-xl border transition-all ${
-              soundEnabled 
-                ? 'bg-amber-50 text-amber-600 border-amber-200' 
-                : 'bg-stone-50 text-stone-400 border-stone-200'
-            }`}
-            title={soundEnabled ? t('orders.sound_on') : t('orders.sound_off')}
-          >
-            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          </button>
-          
-          <button
-            id="change-password-btn"
-            onClick={openChangePassword}
-            className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all flex items-center justify-center"
-            title={t('dashboard.change_password')}
-          >
-            <KeyRound size={16} />
-          </button>
-
-          <button
-            id="admin-logout-btn"
-            onClick={handleLogout}
-            className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition-all flex items-center justify-center"
-            title={t('dashboard.logout')}
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-      </header>
-
       <div className="p-4 md:p-6 flex flex-col gap-6">
+        {/* Panel title */}
+        <h1 id="admin-panel-title" className="text-lg font-extrabold text-stone-900 tracking-tight">
+          {t('dashboard.title')}
+        </h1>
         
         {/* Stats Grid */}
         <div id="admin-stats-bar" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('orders.active_count')}</span>
+            <span className="text-xs font-bold text-stone-900 leading-none">{t('orders.active_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
                 <Clock size={20} />
@@ -711,7 +622,7 @@ export default function OwnerCabinet() {
           </div>
           
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.cash_revenue')}</span>
+            <span className="text-xs font-bold text-stone-900 leading-none">{t('dashboard.cash_revenue')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                 <DollarSign size={20} />
@@ -721,7 +632,7 @@ export default function OwnerCabinet() {
           </div>
 
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.dish_count')}</span>
+            <span className="text-xs font-bold text-stone-900 leading-none">{t('dashboard.dish_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
                 <UtensilsCrossed size={20} />
@@ -731,7 +642,7 @@ export default function OwnerCabinet() {
           </div>
 
           <div className="bg-white border border-stone-200/50 p-4 rounded-2xl shadow-sm flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-stone-900 uppercase tracking-wide leading-none">{t('dashboard.table_count')}</span>
+            <span className="text-xs font-bold text-stone-900 leading-none">{t('dashboard.table_count')}</span>
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                 <Users size={20} />
@@ -1566,106 +1477,6 @@ export default function OwnerCabinet() {
               </form>
             </motion.div>
           </>
-        )}
-      </AnimatePresence>
-
-      {/* Change Password Modal */}
-      <AnimatePresence>
-        {isPwdModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl flex flex-col gap-4 text-stone-800"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="font-extrabold text-stone-900 flex items-center gap-2">
-                  <KeyRound size={18} className="text-amber-600" />
-                  {t('dashboard.change_password')}
-                </h3>
-                <button
-                  id="close-change-password-btn"
-                  type="button"
-                  onClick={() => setIsPwdModalOpen(false)}
-                  className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="new-password-field" className="text-xs font-bold text-stone-500">
-                    {t('dashboard.new_password')}
-                  </label>
-                  <input
-                    id="new-password-field"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    autoComplete="new-password"
-                    className="w-full bg-stone-50 px-4 py-3 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="confirm-password-field" className="text-xs font-bold text-stone-500">
-                    {t('dashboard.confirm_password')}
-                  </label>
-                  <input
-                    id="confirm-password-field"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    autoComplete="new-password"
-                    className="w-full bg-stone-50 px-4 py-3 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                {pwdStatus && (
-                  <div
-                    id="change-password-status"
-                    className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ${
-                      pwdStatus.type === 'success'
-                        ? 'bg-emerald-50 border border-emerald-100 text-emerald-700'
-                        : 'bg-rose-50 border border-rose-100 text-rose-600'
-                    }`}
-                  >
-                    <AlertCircle size={14} />
-                    <span>{pwdStatus.text}</span>
-                  </div>
-                )}
-
-                <div className="flex gap-3 mt-1">
-                  <button
-                    id="cancel-change-password-btn"
-                    type="button"
-                    onClick={() => setIsPwdModalOpen(false)}
-                    className="flex-1 bg-white border border-stone-200 text-stone-700 font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all hover:bg-stone-50 active:scale-95"
-                  >
-                    {t('menu.cancel')}
-                  </button>
-                  <button
-                    id="submit-change-password-btn"
-                    type="submit"
-                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md active:scale-95"
-                  >
-                    {t('dashboard.change_password')}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
         )}
       </AnimatePresence>
 
