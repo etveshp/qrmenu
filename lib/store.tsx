@@ -379,6 +379,7 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'cart.notes_placeholder': { ua: 'Наприклад: без цибулі, подвійний сир, лід у напій...', en: 'For example: no onion, extra cheese, ice in drink...', hu: 'Például: hagyma nélkül, dupla sajt, jég az italba...' },
   'cart.send_error': { ua: 'Не вдалося надіслати замовлення. Спробуйте ще раз.', en: 'Failed to send order. Please try again.', hu: 'Nem sikerült elküldeni a rendelést. Próbálja újra.' },
   'cart.thanks': { ua: 'Дякуємо за замовлення!', en: 'Thank you for your order!', hu: 'Köszönjük a rendelést!' },
+  'cart.remove_item': { ua: 'Видалити з кошика', en: 'Remove from cart', hu: 'Törlés a kosárból' },
 
   // Owner cabinet extras
   'dashboard.cash_revenue': { ua: 'Каса (Виконані)', en: 'Revenue (Completed)', hu: 'Bevétel (Teljesítve)' },

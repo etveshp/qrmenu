@@ -17,7 +17,8 @@ import {
   Utensils,
   Coffee,
   ChevronLeft,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 
 export default function CustomerMenu() {
@@ -40,14 +41,15 @@ export default function CustomerMenu() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [cart, setCart] = useState<Record<string, number>>({});
+  // Per-dish quantity being prepared on the card stepper — NOT in the cart yet;
+  // only the round "+" button commits it to the cart.
+  const [pendingQty, setPendingQty] = useState<Record<string, number>>({});
   const [expandedDishes, setExpandedDishes] = useState<Record<string, boolean>>({});
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [orderNotes, setOrderNotes] = useState<string>('');
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
   const [lastOrderId, setLastOrderId] = useState<string>('');
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
-  const [activeQtyDishId, setActiveQtyDishId] = useState<string | null>(null);
-  const [pendingQty, setPendingQty] = useState<number>(1);
 
   // Filter items: category view filters within the category; on the home
   // screen a non-empty search shows cross-category results.
@@ -91,6 +93,14 @@ export default function CustomerMenu() {
         ...prev,
         [id]: current - 1,
       };
+    });
+  };
+
+  const removeItemFromCart = (id: string) => {
+    setCart((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
     });
   };
 
@@ -293,6 +303,7 @@ export default function CustomerMenu() {
           {filteredItems.length > 0 ? (
             filteredItems.map((dish) => {
               const countInCart = cart[dish.id] || 0;
+              const pending = pendingQty[dish.id] || 0;
               const isExpanded = !!expandedDishes[dish.id];
               const dishName = language === 'ua' ? dish.nameUa : language === 'hu' ? (dish.nameHu || dish.nameEn || dish.nameUa) : dish.nameEn;
               const dishDesc = language === 'ua' ? dish.descriptionUa : language === 'hu' ? (dish.descriptionHu || dish.descriptionEn || dish.descriptionUa) : dish.descriptionEn;
@@ -374,87 +385,49 @@ export default function CustomerMenu() {
                       </button>
 
                       {dish.isAvailable ? (
-                        <div id={`cart-control-wrapper-${dish.id}`} className="relative w-10 h-10 select-none">
-                          <motion.div
-                            layout
-                            id={`cart-control-container-${dish.id}`}
-                            transition={{ 
-                              type: "spring", 
-                              stiffness: 350, 
-                              damping: 25 
+                        <div id={`cart-control-wrapper-${dish.id}`} className="flex items-center gap-3.5 select-none">
+                          {/* Quantity stepper — selects the amount only, defaults to 0; does NOT touch the cart */}
+                          <div className="flex items-center bg-white border border-stone-200 rounded-full shadow-sm h-10 px-1 overflow-hidden">
+                            <button
+                              id={`remove-btn-${dish.id}`}
+                              type="button"
+                              onClick={() => setPendingQty(prev => ({ ...prev, [dish.id]: Math.max(0, (prev[dish.id] || 0) - 1) }))}
+                              className="w-8 h-8 flex items-center justify-center text-stone-500 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100/50 rounded-full transition-all cursor-pointer"
+                              title={t('menu.decrease')}
+                            >
+                              <Minus size={16} className="stroke-[2.5]" />
+                            </button>
+                            <span
+                              id={`qty-${dish.id}`}
+                              data-testid={`qty-${dish.id}`}
+                              className="text-sm font-black text-stone-800 text-center min-w-6"
+                            >
+                              {pending}
+                            </span>
+                            <button
+                              id={`add-qty-${dish.id}`}
+                              type="button"
+                              onClick={() => setPendingQty(prev => ({ ...prev, [dish.id]: Math.min(99, (prev[dish.id] || 0) + 1) }))}
+                              className="w-8 h-8 flex items-center justify-center text-stone-600 hover:text-amber-600 hover:bg-amber-50 active:bg-amber-100/50 rounded-full transition-all cursor-pointer"
+                              title={t('menu.add')}
+                            >
+                              <Plus size={16} className="stroke-[2.5]" />
+                            </button>
+                          </div>
+                          {/* The round "+" is the only control that adds to the cart */}
+                          <button
+                            id={`add-btn-${dish.id}`}
+                            type="button"
+                            onClick={() => {
+                              const amount = pending > 0 ? pending : 1;
+                              setCart(prev => ({ ...prev, [dish.id]: (prev[dish.id] || 0) + amount }));
+                              setPendingQty(prev => ({ ...prev, [dish.id]: 0 }));
                             }}
-                            className={`absolute right-0 bottom-0 flex items-center overflow-hidden rounded-full ${
-                              activeQtyDishId === dish.id 
-                                ? "w-[140px] h-10 px-1.5 bg-white border border-stone-200 shadow-md justify-between" 
-                                : "w-10 h-10 justify-center bg-transparent border-transparent"
-                            }`}
+                            className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all flex items-center justify-center text-white cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.35)]"
+                            title={t('menu.add_to_cart')}
                           >
-                            {activeQtyDishId !== dish.id ? (
-                              <button
-                                key="add"
-                                id={`add-btn-${dish.id}`}
-                                type="button"
-                                onClick={() => {
-                                  setActiveQtyDishId(dish.id);
-                                  setPendingQty(countInCart > 0 ? countInCart : 1);
-                                }}
-                                className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all flex items-center justify-center text-white cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.35)]"
-                                title={t('menu.add_to_cart')}
-                              >
-                                <Plus size={18} className="stroke-[3]" />
-                              </button>
-                            ) : (
-                              <div key="controls" className="flex items-center justify-between w-full animate-fade-in px-0.5">
-                                <button
-                                  id={`add-qty-${dish.id}`}
-                                  type="button"
-                                  onClick={() => setPendingQty(prev => prev + 1)}
-                                  className="w-7 h-7 flex items-center justify-center text-stone-600 hover:text-amber-600 hover:bg-amber-50 active:bg-amber-100/50 rounded-full transition-all cursor-pointer"
-                                  title={t('menu.add')}
-                                >
-                                  <Plus size={14} className="stroke-[2.5]" />
-                                </button>
-                                
-                                <span className="text-xs font-black text-stone-800 select-none w-5 text-center">
-                                  {pendingQty}
-                                </span>
-
-                                <button
-                                  id={`remove-qty-${dish.id}`}
-                                  type="button"
-                                  onClick={() => setPendingQty(prev => Math.max(0, prev - 1))}
-                                  className="w-7 h-7 flex items-center justify-center text-stone-600 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100/50 rounded-full transition-all cursor-pointer"
-                                  title={t('menu.decrease')}
-                                >
-                                  <Minus size={14} className="stroke-[2.5]" />
-                                </button>
-
-                                <button
-                                  id={`confirm-qty-${dish.id}`}
-                                  type="button"
-                                  onClick={() => {
-                                    if (pendingQty > 0) {
-                                      setCart(prev => ({
-                                        ...prev,
-                                        [dish.id]: pendingQty
-                                      }));
-                                    } else {
-                                      setCart(prev => {
-                                        const next = { ...prev };
-                                        delete next[dish.id];
-                                        return next;
-                                      });
-                                    }
-                                    setActiveQtyDishId(null);
-                                  }}
-                                  className="w-7 h-7 flex items-center justify-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-all cursor-pointer shadow-sm hover:shadow active:scale-95"
-                                  title={t('menu.confirm_qty')}
-                                >
-                                  <Check size={14} className="stroke-[3]" />
-                                </button>
-                              </div>
-                            )}
-                          </motion.div>
+                            <Plus size={18} className="stroke-[3]" />
+                          </button>
                         </div>
                       ) : (
                         <span className="text-stone-400 text-xs font-semibold italic">
@@ -569,41 +542,53 @@ export default function CustomerMenu() {
                     const dishName = language === 'ua' ? dish.nameUa : language === 'hu' ? (dish.nameHu || dish.nameEn || dish.nameUa) : dish.nameEn;
 
                     return (
-                      <div key={itemId} className="flex justify-between items-center py-2 border-b border-stone-100 last:border-b-0 gap-4">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-10 h-10 rounded-md overflow-hidden bg-stone-100 shrink-0 border border-stone-200/60">
-                            <img 
-                              src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80'} 
-                              alt={dishName}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-0.5 min-w-0">
-                            <span className="font-bold text-stone-900 text-sm truncate">{dishName}</span>
-                            <span className="text-stone-500 text-xs">{dish.price} ₴ / {t('menu.unit')}</span>
-                          </div>
+                      <div key={itemId} className="flex items-start gap-3 py-2.5 border-b border-stone-100 last:border-b-0">
+                        <div className="w-16 h-16 rounded-md overflow-hidden bg-stone-100 shrink-0 border border-stone-200/60">
+                          <img 
+                            src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80'} 
+                            alt={dishName}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
                         </div>
-                        
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="flex items-center bg-stone-50 border border-stone-200 rounded-lg p-0.5">
+                        <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                          {/* Row 1: full-width name (up to 2 lines) + delete on the right edge */}
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-bold text-stone-900 text-sm leading-tight line-clamp-2 min-w-0">{dishName}</span>
                             <button
-                              onClick={() => removeFromCart(itemId)}
-                              className="w-7 h-7 flex items-center justify-center text-stone-500 hover:bg-stone-200 rounded-md transition-colors"
+                              id={`remove-item-btn-${itemId}`}
+                              type="button"
+                              onClick={() => removeItemFromCart(itemId)}
+                              title={t('cart.remove_item')}
+                              className="w-7 h-7 flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100 rounded-md transition-colors shrink-0 -mt-0.5 -mr-0.5"
                             >
-                              <Minus size={12} />
-                            </button>
-                            <span className="px-2.5 text-xs font-bold text-stone-800">{quantity}</span>
-                            <button
-                              onClick={() => addToCart(itemId)}
-                              className="w-7 h-7 flex items-center justify-center text-stone-500 hover:bg-stone-200 rounded-md transition-colors"
-                            >
-                              <Plus size={12} />
-                            </button>
+                            <Trash2 size={16} />
+                          </button>
                           </div>
-                          <span className="font-extrabold text-stone-800 text-sm w-16 text-right">
-                            {dish.price * quantity} ₴
-                          </span>
+                          {/* Row 2: unit price left, stepper + subtotal right */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-stone-500 text-sm font-semibold">{dish.price} ₴</span>
+                            <div className="flex items-center gap-3.5 shrink-0">
+                              <div className="flex items-center bg-stone-50 border border-stone-200 rounded-lg p-0.5">
+                                <button
+                                  onClick={() => removeFromCart(itemId)}
+                                  className="w-7 h-7 flex items-center justify-center text-stone-500 hover:bg-stone-200 rounded-md transition-colors"
+                                >
+                                  <Minus size={12} />
+                                </button>
+                                <span className="px-2.5 text-xs font-bold text-stone-800">{quantity}</span>
+                                <button
+                                  onClick={() => addToCart(itemId)}
+                                  className="w-7 h-7 flex items-center justify-center text-stone-500 hover:bg-stone-200 rounded-md transition-colors"
+                                >
+                                  <Plus size={12} />
+                                </button>
+                              </div>
+                              <span className="font-extrabold text-stone-800 text-base min-w-20 text-right whitespace-nowrap tabular-nums">
+                                {dish.price * quantity} ₴
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );

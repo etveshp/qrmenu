@@ -14,11 +14,20 @@ test('guest browses the menu, adds a dish to the cart and places an order', asyn
   await expect(page.getByRole('button', { name: 'Піца' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Бургери' })).toBeVisible();
 
-  // Open a category and add a dish to the cart
+  // Open a category; quantity stepper defaults to 0
   await page.getByRole('button', { name: 'Піца' }).click();
   await expect(page.getByRole('heading', { name: 'Піца Маргарита' })).toBeVisible();
+  const qty = page.getByTestId('qty-20000000-0000-4000-8000-000000000001');
+  await expect(qty).toHaveText('0');
+
+  // Stepper selects the quantity only — the cart stays empty until the round "+" is pressed
+  await page.getByRole('button', { name: 'Додати', exact: true }).click();
+  await expect(qty).toHaveText('1');
+  await expect(page.getByRole('button', { name: /ваше замовлення/i })).toHaveCount(0);
+
+  // The round "+" is the only control that adds to the cart
   await page.getByRole('button', { name: 'Додати до замовлення' }).click();
-  await page.getByRole('button', { name: 'Підтвердити' }).click();
+  await expect(qty).toHaveText('0');
 
   // Cart bar reflects the item and total
   const cartBar = page.getByRole('button', { name: /ваше замовлення/i });
