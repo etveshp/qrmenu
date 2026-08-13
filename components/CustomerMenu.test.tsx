@@ -60,9 +60,21 @@ describe('CustomerMenu', () => {
     await user.click(screen.getByRole('button', { name: /Піца/ }));
     await screen.findByText('Піца Маргарита');
 
-    // Add 1 pc and confirm
+    // Quantity stepper defaults to 0 and only selects the amount — it does NOT add to the cart
+    const qty = () => screen.getByTestId('qty-dish-1');
+    expect(qty()).toHaveTextContent('0');
+
+    await user.click(screen.getByTitle('Додати'));
+    expect(qty()).toHaveTextContent('1');
+    await user.click(screen.getByTitle('Зменшити'));
+    expect(qty()).toHaveTextContent('0');
+    expect(screen.queryByRole('button', { name: /Ваше замовлення/i })).not.toBeInTheDocument();
+
+    // The round "+" is the only control that adds to the cart
+    await user.click(screen.getByTitle('Додати'));
+    expect(qty()).toHaveTextContent('1');
     await user.click(screen.getByTitle('Додати до замовлення'));
-    await user.click(screen.getByTitle('Підтвердити'));
+    expect(qty()).toHaveTextContent('0');
 
     // Cart trigger appears; open the drawer
     await user.click(await screen.findByRole('button', { name: /Ваше замовлення/i }));
@@ -91,6 +103,27 @@ describe('CustomerMenu', () => {
     });
   });
 
+  it('removes a dish from the cart with the delete button in the drawer', async () => {
+    const user = userEvent.setup();
+    seed();
+    renderGuest();
+    await screen.findByRole('button', { name: /Піца/ });
+    await user.click(screen.getByRole('button', { name: /Піца/ }));
+    await screen.findByText('Піца Маргарита');
+
+    await user.click(screen.getByTitle('Додати'));
+    await user.click(screen.getByTitle('Додати до замовлення'));
+    await user.click(await screen.findByRole('button', { name: /Ваше замовлення/i }));
+
+    // Product row shows its amount and a delete button on the right edge
+    expect(screen.getAllByText('195 ₴').length).toBeGreaterThan(0);
+
+    // Deleting removes the whole row (and the cart total drops to 0)
+    await user.click(screen.getByTitle('Видалити з кошика'));
+    expect(screen.queryByTitle('Видалити з кошика')).not.toBeInTheDocument();
+    expect(screen.getByText('0 ₴')).toBeInTheDocument();
+  });
+
   it('shows the table label in the order when arriving with ?table=3', async () => {
     const user = userEvent.setup();
     seed();
@@ -104,7 +137,6 @@ describe('CustomerMenu', () => {
       await screen.findByText('Піца Маргарита');
 
       await user.click(screen.getByTitle('Додати до замовлення'));
-      await user.click(screen.getByTitle('Підтвердити'));
       await user.click(await screen.findByRole('button', { name: /Ваше замовлення/i }));
       await user.click(screen.getByRole('button', { name: /Надіслати замовлення до кухні/i }));
       await screen.findByText('Дякуємо за замовлення!');
