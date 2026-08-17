@@ -21,14 +21,30 @@ import {
   Trash2
 } from 'lucide-react';
 
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80';
+const DEFAULT_BANNER = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&q=80';
+
+type FlyingItem = {
+  key: number;
+  img: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+};
+
 export default function CustomerMenu() {
   const { 
     menuItems, 
     categories, 
-    createOrder, 
-    language, 
+    createOrder,    language,
     isLoading,
-    t 
+    t,
+    notify,
+    cafePhotoUrl,
+    cafeNames,
+    cafeDescriptions,
+    cafeHours
   } = useQRMenu();
 
   const [selectedTable, setSelectedTable] = useState<string>(() => {
@@ -50,6 +66,94 @@ export default function CustomerMenu() {
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
   const [lastOrderId, setLastOrderId] = useState<string>('');
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [flyingItems, setFlyingItems] = useState<FlyingItem[]>([]);
+  const [landingPulse, setLandingPulse] = useState<{ key: number; x: number; y: number } | null>(null);
+  const flyIdRef = useRef(0);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  };
+
+  // Miniature dish copy size: rectangular, like the original card photo.
+  const FLY_W = 64;
+  const FLY_H = 40;
+
+  // Chime played when an item is added to the cart — same two-note sound
+  // (C5 → E5) the owner hears when a new order arrives.
+  const playAddChime = () => {
+    try {
+      const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+
+      // Note 1: C5
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(523.25, ctx.currentTime);
+      gain1.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.4);
+
+      // Note 2: E5
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15);
+      gain2.gain.setValueAtTime(0.2, ctx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+      osc2.start(ctx.currentTime + 0.15);
+      osc2.stop(ctx.currentTime + 0.65);
+    } catch (e) {
+      console.error('Audio synthesis error:', e);
+    }
+  };
+
+  // Launches a miniature copy of the dish photo from its card to the cart bar.
+  const flyToCart = (dish: MenuItem) => {
+    const cardImg = document.querySelector(`#dish-card-${dish.id} img`);
+    const srcRect = cardImg?.getBoundingClientRect();
+    if (!srcRect) return;
+    const bar = document.getElementById('cart-trigger-btn');
+    let endX: number;
+    let endY: number;
+    if (bar) {
+      const r = bar.getBoundingClientRect();
+      endX = r.left + r.width / 2 - FLY_W / 2;
+      endY = r.top + r.height / 2 - FLY_H / 2;
+    } else {
+      // Bar is not visible yet (first item): fly to where it will appear.
+      endX = window.innerWidth / 2 - FLY_W / 2;
+      endY = window.innerHeight - 44 - FLY_H / 2;
+    }
+    const key = ++flyIdRef.current;
+    setFlyingItems(prev => [
+      ...prev,
+      {
+        key,
+        img: dish.image || FALLBACK_IMG,
+        startX: srcRect.left + srcRect.width / 2 - FLY_W / 2,
+        startY: srcRect.top + srcRect.height / 2 - FLY_H / 2,
+        endX,
+        endY,
+      },
+    ]);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   // Filter items: category view filters within the category; on the home
   // screen a non-empty search shows cross-category results.
@@ -146,14 +250,24 @@ export default function CustomerMenu() {
       setLastOrderId(newId);
       setOrderSuccess(true);
       setCart({});
+      setPendingQty({});
       setOrderNotes('');
       setIsCartOpen(false);
     } catch (err) {
       console.error('Failed to place order', err);
       // Simple, visible fallback until a toast system exists
-      window.alert(t('cart.send_error'));
+      notify(t('cart.send_error'));
     }
   };
+
+  // Working hours badge: today's hours from the café settings (default if unset)
+  const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const todayHoursRaw = cafeHours[DAY_KEYS[new Date().getDay()]];
+  const DEFAULT_HOURS = '09:00 - 22:00';
+  const todayHours =
+    todayHoursRaw === undefined
+      ? DEFAULT_HOURS
+      : todayHoursRaw || t('menu.closed_today');
 
   if (isLoading && menuItems.length === 0) {
     return (
@@ -167,21 +281,21 @@ export default function CustomerMenu() {
     <div id="customer-menu-container" className="w-full max-w-md mx-auto bg-stone-50 min-h-screen shadow-lg flex flex-col relative text-stone-800 pb-20">
       
       {/* Banner / Header */}
-      <header id="customer-header" className="relative h-60 bg-cover bg-center flex flex-col justify-end p-4 text-white rounded-b-2xl overflow-hidden shadow-md" style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.3) 100%), url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&q=80')` }}>
+      <header id="customer-header" className="relative h-60 bg-cover bg-center flex flex-col justify-end p-4 text-white rounded-b-2xl overflow-hidden shadow-md" style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 32%, rgba(0,0,0,0) 55%), url('${cafePhotoUrl || DEFAULT_BANNER}')` }}>
         <div className="absolute top-4 right-4 z-10">
           <div className="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
             <Clock size={12} />
-            <span>09:00 - 22:00</span>
+            <span>{todayHours}</span>
           </div>
         </div>
         
         <div className="flex flex-col gap-1">
           <h1 id="customer-restaurant-name" className="text-2xl font-black tracking-tight flex items-center gap-2">
             <Utensils className="text-amber-500" size={24} />
-            {t('app.name')}
+            {cafeNames[language] || cafeNames.ua || t('app.name')}
           </h1>
           <p className="text-stone-300 text-xs font-medium">
-            {t('app.tagline')}
+            {cafeDescriptions[language] || cafeDescriptions.ua || t('app.tagline')}
           </p>
         </div>
       </header>
@@ -199,13 +313,17 @@ export default function CustomerMenu() {
           
           <div className="flex-1 min-w-0 pr-6 text-left">
             <p className="text-xs font-semibold text-stone-800 leading-relaxed">
-              {t('menu.welcome_hello')} <span className="font-extrabold text-amber-900 drop-shadow-sm">{t('menu.welcome_cafe')}</span>!{' '}
-              {selectedTable ? (
-                <>
-                  {t('menu.welcome_table')} <span className="inline-block bg-amber-200/70 text-amber-950 text-xs font-black px-1.5 py-0.5 rounded-md border border-amber-300/40 font-sans shadow-sm">№{selectedTable}</span>.{' '}
-                </>
-              ) : null}
-              {t('menu.welcome_goodbye')}
+              <span className="block">
+                {t('menu.welcome_hello')} <span className="font-extrabold text-amber-900 drop-shadow-sm">{cafeNames[language] || cafeNames.ua || t('app.name')}</span>!
+              </span>
+              <span className="block">
+                {selectedTable ? (
+                  <>
+                    {t('menu.welcome_table')} <span className="inline-block bg-amber-200/70 text-amber-950 text-xs font-black px-1.5 py-0.5 rounded-md border border-amber-300/40 font-sans shadow-sm">{selectedTable}</span>.{' '}
+                  </>
+                ) : null}
+                {t('menu.welcome_goodbye')}
+              </span>
             </p>
           </div>
 
@@ -214,7 +332,7 @@ export default function CustomerMenu() {
             id="close-welcome-btn"
             type="button"
             onClick={() => setShowWelcome(false)}
-            className="absolute right-2 text-amber-800/60 hover:text-amber-900 hover:bg-amber-100/50 transition-all p-1.5 rounded-full flex items-center justify-center"
+            className="absolute top-2 right-2 text-amber-800/60 hover:text-amber-900 hover:bg-amber-100/50 transition-all p-1.5 rounded-full flex items-center justify-center"
             aria-label="Close"
           >
             <X size={13} />
@@ -273,7 +391,7 @@ export default function CustomerMenu() {
             {categories.map((cat) => {
               const cover =
                 menuItems.find((i) => i.category === cat.id && i.image)?.image ||
-                'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80';
+                FALLBACK_IMG;
               return (
                 <button
                   key={cat.id}
@@ -304,6 +422,9 @@ export default function CustomerMenu() {
             filteredItems.map((dish) => {
               const countInCart = cart[dish.id] || 0;
               const pending = pendingQty[dish.id] || 0;
+              // Stepper shows what is already ordered plus the amount being selected,
+              // so after adding, the chosen quantity stays visible instead of resetting to 0.
+              const stepperValue = countInCart + pending;
               const isExpanded = !!expandedDishes[dish.id];
               const dishName = language === 'ua' ? dish.nameUa : language === 'hu' ? (dish.nameHu || dish.nameEn || dish.nameUa) : dish.nameEn;
               const dishDesc = language === 'ua' ? dish.descriptionUa : language === 'hu' ? (dish.descriptionHu || dish.descriptionEn || dish.descriptionUa) : dish.descriptionEn;
@@ -319,7 +440,7 @@ export default function CustomerMenu() {
                 >
                   <div className="relative h-44 bg-stone-100">
                     <img 
-                      src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80'} 
+                      src={dish.image || FALLBACK_IMG} 
                       alt={dishName}
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -386,7 +507,8 @@ export default function CustomerMenu() {
 
                       {dish.isAvailable ? (
                         <div id={`cart-control-wrapper-${dish.id}`} className="flex items-center gap-3.5 select-none">
-                          {/* Quantity stepper — selects the amount only, defaults to 0; does NOT touch the cart */}
+                          {/* Quantity stepper — selects the amount only, defaults to 0; does NOT touch the cart.
+                              It always shows how many are already in the cart (+ the new selection). */}
                           <div className="flex items-center bg-white border border-stone-200 rounded-full shadow-sm h-10 px-1 overflow-hidden">
                             <button
                               id={`remove-btn-${dish.id}`}
@@ -400,9 +522,9 @@ export default function CustomerMenu() {
                             <span
                               id={`qty-${dish.id}`}
                               data-testid={`qty-${dish.id}`}
-                              className="text-sm font-black text-stone-800 text-center min-w-6"
+                              className="text-sm font-black text-stone-800 text-center min-w-6 tabular-nums"
                             >
-                              {pending}
+                              {stepperValue}
                             </span>
                             <button
                               id={`add-qty-${dish.id}`}
@@ -419,9 +541,16 @@ export default function CustomerMenu() {
                             id={`add-btn-${dish.id}`}
                             type="button"
                             onClick={() => {
-                              const amount = pending > 0 ? pending : 1;
-                              setCart(prev => ({ ...prev, [dish.id]: (prev[dish.id] || 0) + amount }));
+                              if (pending === 0) {
+                                showToast(t('menu.choose_qty_first'));
+                                return;
+                              }
+                              setCart(prev => ({ ...prev, [dish.id]: (prev[dish.id] || 0) + pending }));
+                              // Pending resets to 0; the stepper now reflects the cart amount
+                              // (countInCart + 0), so the ordered quantity stays visible on the card.
                               setPendingQty(prev => ({ ...prev, [dish.id]: 0 }));
+                              flyToCart(dish);
+                              playAddChime();
                             }}
                             className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all flex items-center justify-center text-white cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.35)]"
                             title={t('menu.add_to_cart')}
@@ -478,6 +607,81 @@ export default function CustomerMenu() {
             </div>
           </button>
         </div>
+      )}
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 px-4 w-full max-w-md pointer-events-none"
+          >
+            <div className="mx-auto w-fit max-w-full bg-stone-900/95 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2">
+              <AlertTriangle size={14} className="text-amber-400 shrink-0" />
+              <span className="truncate">{toast}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Fly-to-cart animation: the card visibly shrinks, arcs up and falls into the cart bar */}
+      <AnimatePresence>
+        {flyingItems.map((f) => {
+          const dx = f.endX - f.startX;
+          const dy = f.endY - f.startY;
+          const apexY = Math.min(0, dy) - 90;
+          return (
+            <motion.div
+              key={f.key}
+              className="fixed z-50 pointer-events-none"
+              style={{ left: f.startX, top: f.startY, width: FLY_W, height: FLY_H }}
+              initial={{ x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 }}
+              animate={{
+                x: dx,
+                // Rise up first, then accelerate down into the cart (gravity arc)
+                y: [0, apexY, dy],
+                scale: [1, 0.55, 0.3],
+                rotate: [0, -10, 6, 0],
+                opacity: [1, 1, 0.85],
+              }}
+              transition={{
+                duration: 0.85,
+                x: { duration: 0.85, ease: [0.3, 0.7, 0.2, 1] },
+                y: { duration: 0.85, times: [0, 0.5, 1], ease: ['easeOut', 'easeIn'] },
+                scale: { duration: 0.85, times: [0, 0.5, 1], ease: ['easeIn', 'easeOut'] },
+                rotate: { duration: 0.85, times: [0, 0.35, 0.7, 1], ease: 'easeInOut' },
+                opacity: { duration: 0.85, times: [0, 0.8, 1], ease: 'easeInOut' },
+              }}
+              onAnimationComplete={() => {
+                setFlyingItems(prev => prev.filter(item => item.key !== f.key));
+                // Ring pulse where the card lands on the cart bar
+                setLandingPulse({ key: f.key, x: f.endX + FLY_W / 2, y: f.endY + FLY_H / 2 });
+              }}
+            >
+              <img
+                src={f.img}
+                alt=""
+                aria-hidden="true"
+                className="w-full h-full rounded-lg object-cover shadow-lg border border-stone-200/70"
+              />
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+
+      {/* Landing splash: expanding ring at the cart bar */}
+      {landingPulse && (
+        <motion.div
+          key={landingPulse.key}
+          className="fixed z-40 pointer-events-none w-12 h-12 rounded-full border-2 border-amber-500/80"
+          style={{ left: landingPulse.x - 24, top: landingPulse.y - 24 }}
+          initial={{ scale: 0.3, opacity: 0.9 }}
+          animate={{ scale: 1.5, opacity: 0 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          onAnimationComplete={() => setLandingPulse(null)}
+        />
       )}
 
       {/* Cart Drawer Modal */}
@@ -545,7 +749,7 @@ export default function CustomerMenu() {
                       <div key={itemId} className="flex items-start gap-3 py-2.5 border-b border-stone-100 last:border-b-0">
                         <div className="w-16 h-16 rounded-md overflow-hidden bg-stone-100 shrink-0 border border-stone-200/60">
                           <img 
-                            src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80'} 
+                            src={dish.image || FALLBACK_IMG} 
                             alt={dishName}
                             className="w-full h-full object-cover"
                             loading="lazy"

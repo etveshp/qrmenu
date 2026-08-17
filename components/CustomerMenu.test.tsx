@@ -74,7 +74,8 @@ describe('CustomerMenu', () => {
     await user.click(screen.getByTitle('Додати'));
     expect(qty()).toHaveTextContent('1');
     await user.click(screen.getByTitle('Додати до замовлення'));
-    expect(qty()).toHaveTextContent('0');
+    // The chosen quantity stays visible on the stepper (reflects the cart), not reset to 0
+    expect(qty()).toHaveTextContent('1');
 
     // Cart trigger appears; open the drawer
     await user.click(await screen.findByRole('button', { name: /Ваше замовлення/i }));
@@ -101,6 +102,24 @@ describe('CustomerMenu', () => {
       price: 195,
       name_ua: 'Піца Маргарита',
     });
+  });
+
+  it('shows a toast instead of adding when the round "+" is pressed with quantity 0', async () => {
+    const user = userEvent.setup();
+    seed();
+    renderGuest();
+    await screen.findByRole('button', { name: /Піца/ });
+    await user.click(screen.getByRole('button', { name: /Піца/ }));
+    await screen.findByText('Піца Маргарита');
+
+    // Quantity is still 0 — the round "+" must NOT add to the cart
+    await user.click(screen.getByTitle('Додати до замовлення'));
+
+    expect(screen.getByText('Спочатку оберіть кількість')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ваше замовлення/i })).not.toBeInTheDocument();
+
+    // Stepper still untouched (0), cart never got the item
+    expect(screen.getByTestId('qty-dish-1')).toHaveTextContent('0');
   });
 
   it('removes a dish from the cart with the delete button in the drawer', async () => {
@@ -136,6 +155,7 @@ describe('CustomerMenu', () => {
       await user.click(screen.getByRole('button', { name: /Піца/ }));
       await screen.findByText('Піца Маргарита');
 
+      await user.click(screen.getByTitle('Додати'));
       await user.click(screen.getByTitle('Додати до замовлення'));
       await user.click(await screen.findByRole('button', { name: /Ваше замовлення/i }));
       await user.click(screen.getByRole('button', { name: /Надіслати замовлення до кухні/i }));

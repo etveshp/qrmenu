@@ -15,6 +15,7 @@ export interface SupabaseFake {
     session: FakeSession | null;
     listeners: Array<(event: string, session: unknown) => void>;
     channels: unknown[];
+    storageFiles: Record<string, string[]>;
   };
   reset: () => void;
   supabase: {
@@ -33,9 +34,11 @@ export interface SupabaseFake {
       signOut: () => Promise<{ error: null }>;
     };
     storage: {
-      from: () => {
-        upload: () => Promise<{ error: null }>;
-        getPublicUrl: () => { data: { publicUrl: string } };
+      from: (bucket: string) => {
+        upload: (path: string) => Promise<{ error: null }>;
+        list: () => Promise<{ data: Array<{ name: string }> | null; error: null }>;
+        getPublicUrl: (path: string) => { data: { publicUrl: string } };
+        remove: (paths: string[]) => Promise<{ error: null }>;
       };
     };
   };
@@ -47,11 +50,13 @@ export function createSupabaseFake(): SupabaseFake {
     session: FakeSession | null;
     listeners: Array<(event: string, session: unknown) => void>;
     channels: unknown[];
+    storageFiles: Record<string, string[]>;
   } = {
     db: { categories: [], menu_items: [], tables: [], orders: [], order_items: [], settings: [] },
     session: null,
     listeners: [],
     channels: [],
+    storageFiles: {},
   };
 
   const reset = () => {
@@ -59,6 +64,7 @@ export function createSupabaseFake(): SupabaseFake {
     state.session = null;
     state.listeners = [];
     state.channels = [];
+    state.storageFiles = {};
   };
 
   const makeBuilder = (table: string) => {
@@ -224,10 +230,24 @@ export function createSupabaseFake(): SupabaseFake {
       },
     },
     storage: {
-      from: () => ({
-        upload: async () => ({ error: null }),
-        getPublicUrl: () => ({ data: { publicUrl: 'https://example.com/x.jpg' } }),
-        remove: async () => ({ error: null }),
+      from: (bucket: string) => ({
+        upload: async (_path: string) => {
+          const list = state.storageFiles[bucket] ?? (state.storageFiles[bucket] = []);
+          if (!list.includes(_path)) list.push(_path);
+          return { error: null };
+        },
+        list: async () => {
+          const names = state.storageFiles[bucket] ?? [];
+          return { data: names.map((name) => ({ name })), error: null };
+        },
+        getPublicUrl: (path: string) => ({
+          data: { publicUrl: `https://example.com/storage/v1/object/public/${bucket}/${path}` },
+        }),
+        remove: async (_paths: string[]) => {
+          const list = state.storageFiles[bucket] ?? [];
+          state.storageFiles[bucket] = list.filter((p) => !_paths.includes(p));
+          return { error: null };
+        },
       }),
     },
   };

@@ -58,6 +58,7 @@ export interface TableInfo {
   id: string;
   label: string;
   qrPath: string | null; // path inside the qr-codes storage bucket
+  comment: string; // optional admin note about the table ('' if none)
 }
 
 interface QRMenuContextType {
@@ -73,6 +74,24 @@ interface QRMenuContextType {
   isLoading: boolean;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
+  // Café info (shown in the guest menu banner)
+  cafePhotoUrl: string;
+  cafeLogoUrl: string;
+  cafeNames: { ua: string; en: string; hu: string };
+  cafeDescriptions: { ua: string; en: string; hu: string };
+  cafeHours: Record<string, string>; // day key ('mon'..'sun') -> display string, '' = closed
+  uploadCafePhoto: (file: File) => Promise<void>;
+  uploadCafeLogo: (file: File) => Promise<void>;
+  saveCafeInfo: (info: {
+    name_ua?: string;
+    name_en?: string;
+    name_hu?: string;
+    description_ua?: string;
+    description_en?: string;
+    description_hu?: string;
+    hours?: Record<string, string>;
+  }) => Promise<void>;
+  deleteCafePhoto: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   changePassword: (newPassword: string) => Promise<{ error: string | null }>;
@@ -86,10 +105,12 @@ interface QRMenuContextType {
   createOrder: (tableId: string, items: OrderItem[], notes?: string) => Promise<string>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
-  addTable: (label: string) => Promise<void>;
+  addTable: (label: string, comment?: string) => Promise<void>;
   deleteTable: (label: string) => Promise<void>;
   regenerateTableQr: (id: string) => Promise<void>;
   t: (key: string) => string;
+  // In-app toast notification (replaces window.alert for errors/info)
+  notify: (message: string) => void;
 }
 
 const QRMenuContext = createContext<QRMenuContextType | undefined>(undefined);
@@ -223,6 +244,10 @@ const dataUrlToBlob = (dataUrl: string): Blob => {
   return new Blob([arr], { type: mime });
 };
 
+// Monotonic counter so cache-busting versions are unique even within the same
+// millisecond (two rapid uploads must produce different URLs).
+let cafeUploadSeq = 0;
+
 const newId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -244,12 +269,13 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'menu.all': { ua: 'Всі страви', en: 'All', hu: 'Összes étel' },
   'menu.ingredients': { ua: 'Інгредієнти:', en: 'Ingredients:', hu: 'Összetevők:' },
   'menu.add_to_cart': { ua: 'Додати до замовлення', en: 'Add to Order', hu: 'Rendeléshez ad' },
+  'menu.choose_qty_first': { ua: 'Спочатку оберіть кількість', en: 'First choose a quantity', hu: 'Előbb válasszon mennyiséget' },
   'menu.out_of_stock': { ua: 'Тимчасово відсутня', en: 'Temporarily Unavailable', hu: 'Átmenetileg nem elérhető' },
   'menu.not_found': { ua: 'Страви не знайдено за цим запитом', en: 'No dishes found for this search', hu: 'Nincs találat a keresésre' },
   'cart.title': { ua: 'Ваше замовлення', en: 'Your Order', hu: 'Az Ön rendelése' },
   'cart.empty': { ua: 'Кошик порожній. Оберіть страви з нашого меню!', en: 'Your cart is empty. Pick dishes from our menu!', hu: 'A kosár üres. Válasszon ételeket a menüről!' },
   'cart.item_count': { ua: 'страв', en: 'items', hu: 'étel' },
-  'cart.table': { ua: 'Стіл №', en: 'Table #', hu: 'Asztal #' },
+  'cart.table': { ua: 'Стіл', en: 'Table', hu: 'Asztal' },
   'cart.notes': { ua: 'Побажання до замовлення (наприклад, без цибулі):', en: 'Notes to order (e.g., no onions, extra ice):', hu: 'Kérések a rendeléshez (pl. hagyma nélkül):' },
   'cart.checkout_btn': { ua: 'Надіслати замовлення до кухні', en: 'Send Order to Kitchen', hu: 'Rendelés elküldése a konyhára' },
   'cart.total': { ua: 'Всього до сплати:', en: 'Total:', hu: 'Összesen fizetendő:' },
@@ -268,11 +294,49 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'dashboard.logout': { ua: 'Вийти', en: 'Log Out', hu: 'Kijelentkezés' },
   'header.more': { ua: 'Більше', en: 'More', hu: 'Több' },
   'header.profile': { ua: 'Профіль адміна', en: 'Admin Profile', hu: 'Admin profil' },
-  'profile.title': { ua: 'Профіль адміна', en: 'Admin Profile', hu: 'Admin profil' },
+  'profile.title': { ua: 'Налаштування', en: 'Settings', hu: 'Beállítások' },
   'profile.email': { ua: 'Акаунт', en: 'Account', hu: 'Fiók' },
   'profile.back': { ua: 'Назад до панелі', en: 'Back to Panel', hu: 'Vissza a panelre' },
   'profile.need_login': { ua: 'Увійдіть у кабінет власника, щоб керувати профілем.', en: 'Sign in to the owner cabinet to manage your profile.', hu: 'Jelentkezzen be a tulajdonosi kabinetbe a profil kezeléséhez.' },
   'profile.go_login': { ua: 'Перейти до входу', en: 'Go to Sign In', hu: 'Tovább a bejelentkezéshez' },
+  'profile.photo_label': { ua: 'Фото закладу', en: 'Café photo', hu: 'Kávézó fotó' },
+  'profile.photo_hint': { ua: 'Відображається в банері гостьового меню', en: 'Shown in the guest menu banner', hu: 'A vendég menü bannerében jelenik meg' },
+  'profile.upload_photo': { ua: 'Завантажити фото', en: 'Upload photo', hu: 'Fotó feltöltése' },
+  'profile.uploading': { ua: 'Завантаження…', en: 'Uploading…', hu: 'Feltöltés…' },
+  'profile.photo_uploaded': { ua: 'Фото оновлено', en: 'Photo updated', hu: 'Fotó frissítve' },
+  'profile.upload_error': { ua: 'Не вдалося завантажити фото', en: 'Failed to upload photo', hu: 'Nem sikerült feltölteni a fotót' },
+  'profile.cafe_name': { ua: 'Назва закладу', en: 'Café name', hu: 'Kávézó neve' },
+  'profile.cafe_description': { ua: 'Короткий опис', en: 'Short description', hu: 'Rövid leírás' },
+  'profile.save_info': { ua: 'Зберегти', en: 'Save', hu: 'Mentés' },
+  'profile.info_saved': { ua: 'Збережено', en: 'Saved', hu: 'Elmentve' },
+  'profile.delete_photo': { ua: 'Видалити фото', en: 'Delete photo', hu: 'Fotó törlése' },
+  'profile.photo_deleted': { ua: 'Фото видалено', en: 'Photo deleted', hu: 'Fotó törölve' },
+  'profile.delete_photo_error': { ua: 'Не вдалося видалити фото', en: 'Failed to delete photo', hu: 'Nem sikerült törölni a fotót' },
+  'profile.crop_title': { ua: 'Налаштувати фото', en: 'Adjust photo', hu: 'Fotó beállítása' },
+  'profile.crop_hint': { ua: 'Перетягніть фото, щоб перемістити, і змініть масштаб повзунком', en: 'Drag to move and use the slider to zoom', hu: 'Húzza a fotót a mozgatáshoz, a csúszkával nagyítson' },
+  'profile.crop_apply': { ua: 'Застосувати', en: 'Apply', hu: 'Alkalmaz' },
+  'profile.crop_cancel': { ua: 'Скасувати', en: 'Cancel', hu: 'Mégse' },
+  'profile.crop_reset': { ua: 'Скинути', en: 'Reset', hu: 'Visszaállítás' },
+  'profile.crop_zoom': { ua: 'Масштаб', en: 'Zoom', hu: 'Nagyítás' },
+  'profile.crop_zoom_in': { ua: 'Збільшити', en: 'Zoom in', hu: 'Nagyítás' },
+  'profile.crop_zoom_out': { ua: 'Зменшити', en: 'Zoom out', hu: 'Kicsinyítés' },
+  'profile.logo_label': { ua: 'Логотип закладу', en: 'Café logo', hu: 'Kávézó logó' },
+  'profile.logo_hint': { ua: 'PNG або SVG · відображається у верхньому хедері', en: 'PNG or SVG · shown in the top header', hu: 'PNG vagy SVG · a felső fejlécben jelenik meg' },
+  'profile.upload_logo': { ua: 'Завантажити логотип', en: 'Upload logo', hu: 'Logó feltöltése' },
+  'profile.logo_invalid': { ua: 'Формат має бути PNG або SVG', en: 'Format must be PNG or SVG', hu: 'A formátum PNG vagy SVG legyen' },
+  'profile.logo_uploaded': { ua: 'Логотип оновлено', en: 'Logo updated', hu: 'Logó frissítve' },
+  'profile.hours_label': { ua: 'Години роботи', en: 'Working hours', hu: 'Nyitvatartás' },
+  'profile.hours_hint': { ua: 'Порожній день = зачинено. Відображаються в банері меню', en: 'Empty day = closed. Shown in the menu banner', hu: 'Üres nap = zárva. A menü bannerében jelenik meg' },
+  'profile.day_mon': { ua: 'Пн', en: 'Mon', hu: 'Hé' },
+  'profile.day_tue': { ua: 'Вт', en: 'Tue', hu: 'Ke' },
+  'profile.day_wed': { ua: 'Ср', en: 'Wed', hu: 'Sze' },
+  'profile.day_thu': { ua: 'Чт', en: 'Thu', hu: 'Cs' },
+  'profile.day_fri': { ua: 'Пт', en: 'Fri', hu: 'Pé' },
+  'profile.day_sat': { ua: 'Сб', en: 'Sat', hu: 'Szo' },
+  'profile.day_sun': { ua: 'Нд', en: 'Sun', hu: 'Va' },
+  'menu.closed_today': { ua: 'Зачинено', en: 'Closed', hu: 'Zárva' },
+  'profile.hours_open': { ua: 'відкриття', en: 'opens', hu: 'nyitás' },
+  'profile.hours_close': { ua: 'закриття', en: 'closes', hu: 'zárás' },
   'dashboard.change_password': { ua: 'Змінити пароль', en: 'Change Password', hu: 'Jelszó módosítása' },
   'dashboard.new_password': { ua: 'Новий пароль', en: 'New Password', hu: 'Új jelszó' },
   'dashboard.confirm_password': { ua: 'Підтвердіть пароль', en: 'Confirm Password', hu: 'Jelszó megerősítése' },
@@ -344,9 +408,10 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   // Table Generator & QR
   'tables.title': { ua: 'Генератор QR-кодів для столиків', en: 'QR Code Table Generator', hu: 'QR-kód generátor asztalokhoz' },
   'tables.add_table': { ua: 'Додати столик', en: 'Add Table', hu: 'Asztal hozzáadása' },
-  'tables.label': { ua: 'Номер або назва столика', en: 'Table number or name', hu: 'Asztal száma vagy neve' },
+  'tables.label': { ua: 'Номер столика', en: 'Table number', hu: 'Asztal száma' },
   'tables.table_label': { ua: 'Столик', en: 'Table', hu: 'Asztal' },
-  'tables.placeholder': { ua: 'Номер або ім\'я столика (наприклад, 6 або VIP-1)', en: 'Table number or name (e.g., 6 or VIP-1)', hu: 'Asztal száma vagy neve (pl. 6 vagy VIP-1)' },
+  'tables.comment_label': { ua: 'Коментар до столика', en: 'Table comment', hu: 'Asztal megjegyzés' },
+  'tables.comment_placeholder': { ua: 'Наприклад, біля вікна', en: 'e.g., by the window', hu: 'Pl. az ablak mellett' },
   'tables.print_title': { ua: 'QR-код для безконтактного замовлення', en: 'QR Code for Touchless Ordering', hu: 'QR-kód az érintésmentes rendeléshez' },
   'tables.print_scan': { ua: 'Відскануйте, щоб відкрити меню', en: 'Scan to open the menu', hu: 'Szkennelje be a menü megnyitásához' },
   'tables.open_menu_simulation': { ua: 'Симулювати сканування (відкрити меню)', en: 'Simulate scanning (open menu)', hu: 'Szkennelés szimulálása (menü megnyitása)' },
@@ -373,7 +438,6 @@ const TRANSLATIONS: Record<string, { ua: string; en: string; hu?: string }> = {
   'menu.confirm_qty': { ua: 'Підтвердити', en: 'Confirm', hu: 'Megerősít' },
   'menu.unit': { ua: 'шт', en: 'pc', hu: 'db' },
   'menu.welcome_hello': { ua: 'Вітаємо Вас в', en: 'Welcome to', hu: 'Üdvözöljük a' },
-  'menu.welcome_cafe': { ua: 'кафе "Світ кави"', en: '"Svit Kavy" Cafe', hu: '"Svit Kavy" Kávézóban' },
   'menu.welcome_table': { ua: 'Ваш столик', en: 'Your table is', hu: 'Az Ön asztala' },
   'menu.welcome_goodbye': { ua: 'Приємного відпочинку.', en: 'Have a nice rest.', hu: 'Kellemes pihenést kívánunk.' },
   'cart.notes_placeholder': { ua: 'Наприклад: без цибулі, подвійний сир, лід у напій...', en: 'For example: no onion, extra cheese, ice in drink...', hu: 'Például: hagyma nélkül, dupla sajt, jég az italba...' },
@@ -431,6 +495,26 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [soundEnabled, setSoundEnabledState] = useState(true);
+  const [cafePhotoUrl, setCafePhotoUrl] = useState('');
+  const [cafeLogoUrl, setCafeLogoUrl] = useState('');
+  const [cafeNames, setCafeNames] = useState<{ ua: string; en: string; hu: string }>({ ua: '', en: '', hu: '' });
+  const [cafeDescriptions, setCafeDescriptions] = useState<{ ua: string; en: string; hu: string }>({ ua: '', en: '', hu: '' });
+  const [cafeHours, setCafeHours] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show an in-app toast; auto-dismisses after a short delay
+  const notify = (message: string) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2600);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   const tableUuidByLabel = useRef<Map<string, string>>(new Map());
 
@@ -487,11 +571,11 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
 
       setCategories(catRes.data.map(toCategory));
       setMenuItems(itemRes.data.map(toMenuItem));
-      const tableRows = tabRes.data as { id?: string; label: string; qr_path: string | null }[];
+      const tableRows = tabRes.data as { id?: string; label: string; qr_path: string | null; comment?: string | null }[];
       tableUuidByLabel.current = new Map(tableRows.map((r) => [r.label, r.id ?? newId()]));
       setTables(
         sortTables(
-          tableRows.map((r) => ({ id: r.id ?? newId(), label: r.label, qrPath: r.qr_path ?? null }))
+          tableRows.map((r) => ({ id: r.id ?? newId(), label: r.label, qrPath: r.qr_path ?? null, comment: r.comment ?? '' }))
         )
       );
     } catch (err) {
@@ -540,11 +624,159 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // Café info (photo path + name + description), readable by guests
+  type CafeValue = {
+    photo_path?: string;
+    logo_path?: string;
+    photo_version?: number;
+    logo_version?: number;
+    name?: string;
+    description?: string;
+    name_ua?: string;
+    name_en?: string;
+    name_hu?: string;
+    description_ua?: string;
+    description_en?: string;
+    description_hu?: string;
+    hours?: Record<string, string>;
+  };
+
+  const readCafeValue = async (): Promise<CafeValue> => {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'cafe')
+      .maybeSingle();
+    if (error) throw error;
+    return ((data as { value?: CafeValue } | null)?.value ?? {}) as CafeValue;
+  };
+
+  const applyCafeValue = (value: CafeValue) => {
+    if (value.photo_path) {
+      const { data: pub } = supabase.storage.from('cafe-photos').getPublicUrl(value.photo_path);
+      // Cache-busting query so a replaced photo shows immediately (the storage
+      // path is constant, so the URL must change to bypass browser/CDN cache).
+      const v = value.photo_version ? `?v=${value.photo_version}` : '';
+      setCafePhotoUrl(pub.publicUrl + v);
+    }
+    if (value.logo_path) {
+      const { data: pub } = supabase.storage.from('cafe-photos').getPublicUrl(value.logo_path);
+      const v = value.logo_version ? `?v=${value.logo_version}` : '';
+      setCafeLogoUrl(pub.publicUrl + v);
+    }
+    // Legacy single-language values are treated as Ukrainian; other languages
+    // stay empty until they get their own translation.
+    const legacyName = value.name ?? '';
+    setCafeNames({
+      ua: value.name_ua ?? legacyName,
+      en: value.name_en ?? '',
+      hu: value.name_hu ?? '',
+    });
+    const legacyDesc = value.description ?? '';
+    setCafeDescriptions({
+      ua: value.description_ua ?? legacyDesc,
+      en: value.description_en ?? '',
+      hu: value.description_hu ?? '',
+    });
+    setCafeHours(value.hours ?? {});
+  };
+
+  const loadCafePhoto = async () => {
+    try {
+      applyCafeValue(await readCafeValue());
+    } catch (err) {
+      console.error('Failed to load cafe info', err);
+    }
+  };
+
+  const writeCafeValue = async (partial: Partial<CafeValue>) => {
+    const current = await readCafeValue();
+    const next = { ...current, ...partial };
+    const { error } = await supabase.from('settings').upsert({ key: 'cafe', value: next });
+    if (error) throw error;
+    applyCafeValue(next);
+  };
+
+  // Remove every stale object with the given prefix except `keep` — self-heals
+  // the bucket after re-uploads (requires the owner DELETE policy on the bucket).
+  const cleanupCafeObjects = async (prefix: string, keep: string) => {
+    const { data: items, error } = await supabase.storage.from('cafe-photos').list('', {
+      limit: 100,
+      offset: 0,
+      sortBy: { column: 'name', order: 'asc' },
+    });
+    if (error) {
+      console.error('Failed to list café files for cleanup', error);
+      return;
+    }
+    const stale = (items ?? [])
+      .map((it) => it.name)
+      .filter((name) => name.startsWith(prefix) && name !== keep);
+    if (stale.length > 0) {
+      const { error: rmErr } = await supabase.storage.from('cafe-photos').remove(stale);
+      if (rmErr) console.error('Failed to clean up stale café files', rmErr);
+    }
+  };
+
+  // Upload a new café photo: file -> cafe-photos bucket, path -> settings key 'cafe'.
+  // Each upload gets a UNIQUE object path so the URL changes — no stale
+  // browser/CDN cache can ever serve an old photo; every previous object is
+  // removed so the bucket keeps a single café photo.
+  const uploadCafePhoto = async (file: File) => {
+    const path = `cafe-photo-${Date.now()}-${cafeUploadSeq++}`;
+    const { error: upErr } = await supabase.storage
+      .from('cafe-photos')
+      .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
+    if (upErr) throw upErr;
+    await writeCafeValue({ photo_path: path, photo_version: Date.now() + cafeUploadSeq++ });
+    await cleanupCafeObjects('cafe-photo-', path);
+  };
+
+  // Upload a new café logo (PNG/SVG): same unique-path strategy as the photo.
+  const uploadCafeLogo = async (file: File) => {
+    const path = `cafe-logo-${Date.now()}-${cafeUploadSeq++}`;
+    const { error: upErr } = await supabase.storage
+      .from('cafe-photos')
+      .upload(path, file, { contentType: file.type || 'image/png', upsert: false });
+    if (upErr) throw upErr;
+    await writeCafeValue({ logo_path: path, logo_version: Date.now() + cafeUploadSeq++ });
+    await cleanupCafeObjects('cafe-logo-', path);
+  };
+
+  // Save café name / description (trilingual) / working hours (merges with the stored photo path)
+  const saveCafeInfo = async (info: {
+    name_ua?: string;
+    name_en?: string;
+    name_hu?: string;
+    description_ua?: string;
+    description_en?: string;
+    description_hu?: string;
+    hours?: Record<string, string>;
+  }) => {
+    await writeCafeValue(info);
+  };
+
+  // Delete the café photo: remove the storage file and clear photo_path
+  const deleteCafePhoto = async () => {
+    const current = await readCafeValue();
+    if (current.photo_path) {
+      const { error: rmErr } = await supabase.storage.from('cafe-photos').remove([current.photo_path]);
+      if (rmErr) throw rmErr;
+    }
+    const next: CafeValue = { ...current };
+    delete next.photo_path;
+    const { error } = await supabase.from('settings').upsert({ key: 'cafe', value: next });
+    if (error) throw error;
+    setCafePhotoUrl('');
+  };
+
   useEffect(() => {
     // Async data fetch — all setState calls happen after awaits inside
-    // loadMenuData, so this is a standard fetch-on-mount effect.
+    // loadMenuData / loadCafePhoto, so this is a standard fetch-on-mount effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadMenuData();
+    loadCafePhoto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auth state drives order visibility
@@ -741,19 +973,20 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
     await generateTableQr(id, table.label);
   };
 
-  const addTable = async (label: string) => {
+  const addTable = async (label: string, comment?: string) => {
     const clean = label.trim();
     if (!clean || tables.some((t) => t.label === clean)) return;
+    const cleanComment = (comment ?? '').trim();
     const { data, error } = await supabase
       .from('tables')
-      .insert({ label: clean })
+      .insert({ label: clean, comment: cleanComment || null })
       .select()
       .single();
     if (error) throw error;
-    const row = (data ?? {}) as { id?: string; label: string };
+    const row = (data ?? {}) as { id?: string; label: string; comment?: string | null };
     const tableId = row.id ?? newId();
     tableUuidByLabel.current.set(row.label, tableId);
-    const newTable: TableInfo = { id: tableId, label: row.label, qrPath: null };
+    const newTable: TableInfo = { id: tableId, label: row.label, qrPath: null, comment: row.comment ?? '' };
     setTables((prev) => sortTables([...prev, newTable]));
     // Generate and store the QR right away (best effort — a manual
     // "regenerate" button is also available in the cabinet).
@@ -801,6 +1034,15 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         soundEnabled,
         setSoundEnabled,
+        cafePhotoUrl,
+        cafeLogoUrl,
+        cafeNames,
+        cafeDescriptions,
+        cafeHours,
+        uploadCafePhoto,
+        uploadCafeLogo,
+        saveCafeInfo,
+        deleteCafePhoto,
         signIn,
         signOut,
         changePassword,
@@ -817,9 +1059,19 @@ export function QRMenuProvider({ children }: { children: React.ReactNode }) {
         deleteTable,
         regenerateTableQr,
         t,
+        notify,
       }}
     >
       {children}
+
+      {/* Global in-app toast (bottom center) */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] w-full max-w-md px-4 pointer-events-none">
+          <div className="mx-auto w-fit max-w-full bg-stone-900/95 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-xl text-center">
+            {toast}
+          </div>
+        </div>
+      )}
     </QRMenuContext.Provider>
   );
 }

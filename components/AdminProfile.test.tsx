@@ -58,3 +58,14 @@ describe('AdminProfile — change password', () => {
     expect(await screen.findByText('Пароль успішно змінено.')).toBeInTheDocument();
   });
 });
+
+describe('AdminProfile — café photo', () => {
+  it('shows the photo upload field for the owner', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderProfile();
+
+    await screen.findByLabelText('Новий пароль');
+    expect(screen.getByText('Фото закладу')).toBeInTheDocument();
+    expect(screen.getByLabelText('Завантажити фото')).toBeInTheDocument();
+  });
+});
