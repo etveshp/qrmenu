@@ -27,7 +27,8 @@ test('guest browses the menu, adds a dish to the cart and places an order', asyn
 
   // The round "+" is the only control that adds to the cart
   await page.getByRole('button', { name: 'Додати до замовлення' }).click();
-  await expect(qty).toHaveText('0');
+  // The stepper keeps showing the ordered quantity instead of resetting to 0
+  await expect(qty).toHaveText('1');
 
   // Cart bar reflects the item and total
   const cartBar = page.getByRole('button', { name: /ваше замовлення/i });
@@ -64,7 +65,7 @@ test('welcome message shows the table when arriving via ?table=3', async ({ page
   await page.goto('/?table=3');
 
   await expect(page.getByText('Ваш столик')).toBeVisible();
-  // The table number appears right after "Ваш столик №" in the welcome block
+  // The table number appears right after "Ваш столик" in the welcome block
   await expect(page.getByText('Ваш столик').locator('..')).toContainText('3');
 });
 

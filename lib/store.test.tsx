@@ -352,6 +352,171 @@ describe('owner auth', () => {
     await waitFor(() => expect(store.isOwner).toBe(true));
     await waitFor(() => expect(store.soundEnabled).toBe(false));
   });
+
+  it('uploads a café photo: file to storage, path to settings, exposes the public URL', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+
+    const file = new File(['cafe-image-bytes'], 'cafe.jpg', { type: 'image/jpeg' });
+    await act(async () => {
+      await store.uploadCafePhoto(file);
+    });
+
+    // Path saved under settings key 'cafe' (unique per upload)
+    const rows = mock.state.db.settings as { key: string; value: { photo_path?: string } }[];
+    const photoPath = rows.find((r) => r.key === 'cafe')?.value.photo_path;
+    expect(photoPath).toMatch(/^cafe-photo-/);
+    // Public URL exposed for the banner
+    expect(store.cafePhotoUrl).toContain(photoPath ?? '');
+
+    // A fresh provider loads it back from the DB
+    cleanup();
+    renderStore();
+    await waitFor(() => expect(store.cafePhotoUrl).toContain('cafe-photos'));
+  });
+
+  it('cache-busts the photo URL when the photo is replaced', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+
+    const file = new File(['cafe-image-bytes'], 'cafe.jpg', { type: 'image/jpeg' });
+    await act(async () => {
+      await store.uploadCafePhoto(file);
+    });
+    const firstUrl = store.cafePhotoUrl;
+    expect(firstUrl).toContain('?v=');
+
+    // Replace the photo — the URL must change so the browser bypasses the cache
+    await act(async () => {
+      await store.uploadCafePhoto(file);
+    });
+    expect(store.cafePhotoUrl).not.toBe(firstUrl);
+    expect(store.cafePhotoUrl).toMatch(/\?v=\d+$/);
+  });
+
+  it('gives each photo upload a unique object path and removes the previous one', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+
+    const file = new File(['cafe-image-bytes'], 'cafe.jpg', { type: 'image/jpeg' });
+    await act(async () => {
+      await store.uploadCafePhoto(file);
+    });
+    const filesAfterFirst = [...(mock.state.storageFiles['cafe-photos'] ?? [])];
+    expect(filesAfterFirst).toHaveLength(1);
+    expect(filesAfterFirst[0]).toMatch(/^cafe-photo-/);
+
+    // Second and third uploads: each gets a unique object, all stale objects are
+    // cleaned up — exactly one file remains in the bucket
+    await act(async () => {
+      await store.uploadCafePhoto(file);
+    });
+    await act(async () => {
+      await store.uploadCafePhoto(file);
+    });
+    const filesAfterThird = mock.state.storageFiles['cafe-photos'] ?? [];
+    expect(filesAfterThird).toHaveLength(1);
+    expect(filesAfterThird[0]).toMatch(/^cafe-photo-/);
+    expect(filesAfterThird[0]).not.toBe(filesAfterFirst[0]);
+
+    // The stored path matches the surviving object
+    const rows = mock.state.db.settings as { key: string; value: { photo_path?: string } }[];
+    expect(rows.find((r) => r.key === 'cafe')?.value.photo_path).toBe(filesAfterThird[0]);
+  });
+
+  it('saves trilingual café name/description, keeps the photo path, restores on remount', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+
+    // Upload a photo first, then save trilingual name/description
+    await act(async () => {
+      await store.uploadCafePhoto(new File(['x'], 'cafe.jpg', { type: 'image/jpeg' }));
+      await store.saveCafeInfo({
+        name_ua: 'Світ кави',
+        name_en: 'Coffee World',
+        name_hu: 'Kávé Világ',
+        description_ua: 'Затишна кав\'ярня',
+        description_en: 'A cozy coffee shop',
+        description_hu: 'Hangulatos kávézó',
+      });
+    });
+
+    expect(store.cafeNames.ua).toBe('Світ кави');
+    expect(store.cafeNames.en).toBe('Coffee World');
+    expect(store.cafeNames.hu).toBe('Kávé Világ');
+    expect(store.cafeDescriptions.ua).toBe('Затишна кав\'ярня');
+    expect(store.cafeDescriptions.en).toBe('A cozy coffee shop');
+
+    // DB row keeps both the photo path and the new fields
+    const rows = mock.state.db.settings as { key: string; value: { photo_path?: string; name_ua?: string; name_en?: string } }[];
+    const cafeRow = rows.find((r) => r.key === 'cafe')?.value;
+    expect(cafeRow?.photo_path).toMatch(/^cafe-photo-/);
+    expect(cafeRow?.name_ua).toBe('Світ кави');
+    expect(cafeRow?.name_en).toBe('Coffee World');
+
+    // A fresh provider restores name/description too
+    cleanup();
+    renderStore();
+    await waitFor(() => expect(store.cafeNames.ua).toBe('Світ кави'));
+    await waitFor(() => expect(store.cafeNames.en).toBe('Coffee World'));
+    await waitFor(() => expect(store.cafeDescriptions.ua).toBe('Затишна кав\'ярня'));
+  });
+
+  it('deletes the café photo: removes the file reference and clears the URL', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+
+    await act(async () => {
+      await store.uploadCafePhoto(new File(['x'], 'cafe.jpg', { type: 'image/jpeg' }));
+    });
+    expect(store.cafePhotoUrl).toContain('cafe-photos');
+
+    await act(async () => {
+      await store.deleteCafePhoto();
+    });
+    expect(store.cafePhotoUrl).toBe('');
+
+    const rows = mock.state.db.settings as { key: string; value: { photo_path?: string } }[];
+    expect(rows.find((r) => r.key === 'cafe')?.value.photo_path).toBeUndefined();
+  });
+
+  it('uploads a café logo (PNG/SVG): stores the path and exposes the URL', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+
+    await act(async () => {
+      await store.uploadCafeLogo(new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' }));
+    });
+
+    const rows = mock.state.db.settings as { key: string; value: { logo_path?: string } }[];
+    expect(rows.find((r) => r.key === 'cafe')?.value.logo_path).toMatch(/^cafe-logo-/);
+    expect(store.cafeLogoUrl).toContain('cafe-photos');
+  });
+
+  it('saves and restores per-day working hours', async () => {
+    mock.state.session = { user: { email: 'owner@cafe.com' } };
+    renderStore();
+    await waitFor(() => expect(store.isOwner).toBe(true));
+
+    await act(async () => {
+      await store.saveCafeInfo({ hours: { mon: '09:00 - 22:00', tue: '', sun: '10:00 - 18:00' } });
+    });
+
+    expect(store.cafeHours.mon).toBe('09:00 - 22:00');
+    expect(store.cafeHours.tue).toBe('');
+    expect(store.cafeHours.sun).toBe('10:00 - 18:00');
+
+    // A fresh provider restores the hours
+    cleanup();
+    renderStore();
+    await waitFor(() => expect(store.cafeHours.mon).toBe('09:00 - 22:00'));
+  });
 });
 
 // ---------------------------------------------------------------------------

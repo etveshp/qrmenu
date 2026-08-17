@@ -10,7 +10,7 @@ import MoreMenu from './MoreMenu';
 // admin profile. Admin-only controls (view switcher, kebab menu) render
 // only for the owner; guests see just the language switcher.
 export default function AppHeader() {
-  const { t, isOwner } = useQRMenu();
+  const { t, isOwner, cafeLogoUrl } = useQRMenu();
   const router = useRouter();
 
   return (
@@ -26,9 +26,13 @@ export default function AppHeader() {
         title={t('app.owner_btn')}
         className="flex items-center gap-2 cursor-pointer"
       >
-        <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold text-sm">
-          🍳
-        </div>
+        {cafeLogoUrl ? (
+          <img src={cafeLogoUrl} alt={t('app.name')} className="w-8 h-8 object-contain" />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold text-sm">
+            🍳
+          </div>
+        )}
         <span className="font-extrabold text-stone-900 tracking-tight text-xs sm:text-sm">
           {t('app.name')}
         </span>

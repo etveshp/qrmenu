@@ -26,8 +26,15 @@ import {
   ClipboardList,
   Utensils,
   FolderTree,
-  QrCode
+  QrCode,
+  Sparkles,
+  CookingPot,
+  HandPlatter,
+  CheckCircle2,
+  XCircle,
+  ChevronDown
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 // Preset Food Photo list
 const IMAGE_PRESETS = [
@@ -51,6 +58,9 @@ const IMAGE_PRESETS = [
   { name: 'Red Wine', url: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=500&q=80' },
 ];
 
+// Fallback photo for dishes / order items without a custom image
+const ITEM_FALLBACK_IMG = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80';
+
 // Allowed order status transitions (workflow guard)
 const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   new: ['preparing', 'cancelled'],
@@ -58,6 +68,35 @@ const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   delivered: ['completed'],
   completed: [],
   cancelled: [],
+};
+
+// Visual metadata for each order status (icon + colors)
+const STATUS_META: Record<OrderStatus, { icon: LucideIcon; triggerCls: string; itemCls: string }> = {
+  new: {
+    icon: Sparkles,
+    triggerCls: 'bg-rose-50 text-rose-700 border-rose-200',
+    itemCls: 'text-rose-700 hover:bg-rose-50',
+  },
+  preparing: {
+    icon: CookingPot,
+    triggerCls: 'bg-amber-50 text-amber-700 border-amber-200',
+    itemCls: 'text-amber-700 hover:bg-amber-50',
+  },
+  delivered: {
+    icon: HandPlatter,
+    triggerCls: 'bg-blue-50 text-blue-700 border-blue-200',
+    itemCls: 'text-blue-700 hover:bg-blue-50',
+  },
+  completed: {
+    icon: CheckCircle2,
+    triggerCls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    itemCls: 'text-emerald-700 hover:bg-emerald-50',
+  },
+  cancelled: {
+    icon: XCircle,
+    triggerCls: 'bg-stone-50 text-stone-600 border-stone-200',
+    itemCls: 'text-stone-600 hover:bg-stone-100',
+  },
 };
 
 export default function OwnerCabinet() {
@@ -83,7 +122,8 @@ export default function OwnerCabinet() {
     addTable,
     deleteTable,
     regenerateTableQr,
-    t
+    t,
+    notify
   } = useQRMenu();
 
   const [email, setEmail] = useState<string>('');
@@ -99,6 +139,35 @@ export default function OwnerCabinet() {
 
   // Sound toggle is now shared (header More menu)
   const prevOrdersCountRef = useRef<number>(0);
+
+  // Status dropdown: which order's menu is open (null = all closed)
+  const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
+  const statusMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close the status dropdown on outside click
+  useEffect(() => {
+    if (!openStatusFor) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setOpenStatusFor(null);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [openStatusFor]);
+
+  // Shared status-change handler with the workflow guard
+  const changeStatus = (order: Order, next: OrderStatus) => {
+    if (next === order.status) return;
+    if (!ALLOWED_STATUS_TRANSITIONS[order.status].includes(next)) {
+      notify(t('orders.invalid_transition'));
+      return;
+    }
+    updateOrderStatus(order.id, next).catch((err) => {
+      console.error('Failed to update order status', err);
+      notify(t('common.save_error'));
+    });
+  };
 
   // Menu editor modal/form state
   const [isMenuFormOpen, setIsMenuFormOpen] = useState<boolean>(false);
@@ -245,6 +314,7 @@ export default function OwnerCabinet() {
 
   // Table creator state
   const [newTableNumber, setNewTableNumber] = useState<string>('');
+  const [newTableComment, setNewTableComment] = useState<string>('');
 
   // Base URL used for QR codes (guest menu link)
   const baseOriginUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -428,7 +498,7 @@ export default function OwnerCabinet() {
     if (!menuFormState.nameUa || !menuFormState.nameEn || !menuFormState.nameHu) return;
     const price = Math.round(Number(menuFormState.price));
     if (Number.isNaN(price) || price < 0) {
-      window.alert(t('menu.price_invalid'));
+      notify(t('menu.price_invalid'));
       return;
     }
     const payload = { ...menuFormState, price };
@@ -441,7 +511,7 @@ export default function OwnerCabinet() {
       setIsMenuFormOpen(false);
     } catch (err) {
       console.error('Failed to save menu item', err);
-      window.alert(t('common.save_error'));
+      notify(t('common.save_error'));
     }
   };
 
@@ -483,7 +553,7 @@ export default function OwnerCabinet() {
       setIsCatFormOpen(false);
     } catch (err) {
       console.error('Failed to save category', err);
-      window.alert(t('common.save_error'));
+      notify(t('common.save_error'));
     }
   };
 
@@ -493,11 +563,12 @@ export default function OwnerCabinet() {
     const cleanTable = newTableNumber.trim();
     if (!cleanTable) return;
     try {
-      await addTable(cleanTable);
+      await addTable(cleanTable, newTableComment);
       setNewTableNumber('');
+      setNewTableComment('');
     } catch (err) {
       console.error('Failed to create table', err);
-      window.alert(t('common.save_error'));
+      notify(t('common.save_error'));
     }
   };
 
@@ -722,32 +793,128 @@ export default function OwnerCabinet() {
                     }`}
                   >
                     <div className="flex-1 flex flex-col gap-2.5">
-                      {/* Order info */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="bg-stone-900 text-white text-xs font-black px-2.5 py-1 rounded-lg">
-                          Стіл #{order.tableId}
-                        </span>
-                        <span className="text-stone-400 text-xs font-semibold">
-                          {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <span className="text-xs text-stone-300 font-medium">
-                          ({order.id})
-                        </span>
+                      {/* Order info + status selector (right side) */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="bg-stone-900 text-white text-xs font-black px-2.5 rounded-lg inline-flex items-center h-8">
+                              Стіл {order.tableId}
+                            </span>
+                            {tables.find((t) => t.label === order.tableId)?.comment ? (
+                              <span className="text-[10px] text-stone-400 font-medium leading-tight max-w-[150px] truncate">
+                                {tables.find((t) => t.label === order.tableId)?.comment}
+                              </span>
+                            ) : null}
+                          </div>
+                          <span className="text-stone-400 text-xs font-semibold">
+                            {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                        {/* Status dropdown */}
+                        <div ref={statusMenuRef} className="relative">
+                          <button
+                            id={`status-btn-${order.id}`}
+                            type="button"
+                            onClick={() => setOpenStatusFor(openStatusFor === order.id ? null : order.id)}
+                            className={`flex items-center gap-1.5 text-xs font-black px-2.5 h-8 rounded-xl border focus:outline-none transition-colors ${STATUS_META[order.status].triggerCls}`}
+                          >
+                            {React.createElement(STATUS_META[order.status].icon, { size: 13 })}
+                            <span>{t(`orders.status_${order.status}`)}</span>
+                            <ChevronDown
+                              size={13}
+                              className={`transition-transform ${openStatusFor === order.id ? 'rotate-180' : ''}`}
+                            />
+                          </button>
+
+                          <AnimatePresence>
+                            {openStatusFor === order.id && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                                transition={{ duration: 0.12 }}
+                                className="absolute right-0 top-full mt-1.5 z-30 bg-white rounded-xl border border-stone-200 shadow-xl p-1 min-w-[190px]"
+                              >
+                                {(Object.keys(ALLOWED_STATUS_TRANSITIONS) as OrderStatus[]).map((s) => {
+                                  const isCurrent = s === order.status;
+                                  return (
+                                    <button
+                                      key={s}
+                                      type="button"
+                                      disabled={isCurrent}
+                                      onClick={() => {
+                                        setOpenStatusFor(null);
+                                        changeStatus(order, s);
+                                      }}
+                                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-bold text-left transition-colors ${STATUS_META[s].itemCls} ${isCurrent ? 'opacity-60 cursor-default' : ''}`}
+                                    >
+                                      {React.createElement(STATUS_META[s].icon, { size: 14 })}
+                                      <span className="flex-1">{t(`orders.status_${s}`)}</span>
+                                      {isCurrent && <Check size={13} />}
+                                    </button>
+                                  );
+                                })}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* Delete order (red icon, right of the status dropdown) */}
+                        <button
+                          id={`delete-order-${order.id}`}
+                          type="button"
+                          onClick={() =>
+                            askConfirm(t('orders.delete_confirm'), () => {
+                              deleteOrder(order.id).catch((err) => {
+                                console.error('Failed to delete order', err);
+                                notify(t('common.delete_error'));
+                              });
+                            })
+                          }
+                          className="flex items-center justify-center w-8 h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 rounded-lg transition-colors border border-stone-200 bg-white"
+                          title={t('orders.delete_title')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        </div>
                       </div>
 
-                      {/* Items */}
-                      <div className="flex flex-col gap-1.5 bg-stone-50/50 p-2.5 rounded-xl border border-stone-200/20">
-                        {order.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs">
-                            <div className="flex items-center gap-1.5 font-bold text-stone-800">
-                              <span className="text-amber-600 bg-amber-50 border border-amber-200/50 w-5 h-5 rounded flex items-center justify-center text-xs font-black">
-                                {it.quantity}
-                              </span>
-                              <span>{language === 'ua' ? it.nameUa : language === 'hu' ? (it.nameHu || it.nameEn || it.nameUa) : it.nameEn}</span>
+                      {/* Items — same look as the "Your Order" drawer in the guest menu */}
+                      <div className="flex flex-col">
+                        {order.items.map((it, idx) => {
+                          const dishImg = menuItems.find(m => m.id === it.menuItemId)?.image || ITEM_FALLBACK_IMG;
+                          const itemName = language === 'ua' ? it.nameUa : language === 'hu' ? (it.nameHu || it.nameEn || it.nameUa) : it.nameEn;
+                          return (
+                            <div key={idx} className="flex items-start gap-3 py-2.5 border-b border-stone-100 last:border-b-0">
+                              <div className="w-16 h-16 rounded-md overflow-hidden bg-stone-100 shrink-0 border border-stone-200/60">
+                                <img
+                                  src={dishImg}
+                                  alt={itemName}
+                                  loading="lazy"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                                {/* Row 1: full-width name (up to 2 lines) */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="font-bold text-stone-900 text-sm leading-tight line-clamp-2 min-w-0">{itemName}</span>
+                                </div>
+                                {/* Row 2: unit price left, quantity + subtotal right */}
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-stone-500 text-sm font-semibold">{it.price} ₴</span>
+                                  <div className="flex items-center gap-3.5 shrink-0">
+                                    <span className="text-xs font-bold text-stone-400 tabular-nums">×{it.quantity}</span>
+                                    <span className="font-extrabold text-stone-800 text-base min-w-20 text-right whitespace-nowrap tabular-nums">
+                                      {it.price * it.quantity} ₴
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <span className="font-extrabold text-stone-600">{it.price * it.quantity} ₴</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {/* Notes */}
@@ -765,58 +932,6 @@ export default function OwnerCabinet() {
                         <span className="text-base font-black text-stone-900">{order.totalPrice} ₴</span>
                       </div>
 
-                      {/* Controls */}
-                      <div className="flex flex-wrap gap-1.5 justify-end w-full sm:w-auto">
-                        <select
-                          id={`status-select-${order.id}`}
-                          value={order.status}
-                          onChange={(e) => {
-                            const next = e.target.value as OrderStatus;
-                            if (next === order.status) return;
-                            if (!ALLOWED_STATUS_TRANSITIONS[order.status].includes(next)) {
-                              window.alert(t('orders.invalid_transition'));
-                              return;
-                            }
-                            updateOrderStatus(order.id, next).catch((err) => {
-                              console.error('Failed to update order status', err);
-                              window.alert(t('common.save_error'));
-                            });
-                          }}
-                          className={`text-xs font-black px-2.5 py-1.5 rounded-xl border focus:outline-none transition-colors ${
-                            order.status === 'new'
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : order.status === 'preparing'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : order.status === 'delivered'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : order.status === 'completed'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-stone-50 text-stone-600 border-stone-200'
-                          }`}
-                        >
-                          <option value="new">🆕 {t('orders.status_new')}</option>
-                          <option value="preparing">🍳 {t('orders.status_preparing')}</option>
-                          <option value="delivered">🍽️ {t('orders.status_delivered')}</option>
-                          <option value="completed">✅ {t('orders.status_completed')}</option>
-                          <option value="cancelled">❌ {t('orders.status_cancelled')}</option>
-                        </select>
-
-                        <button
-                          id={`delete-order-${order.id}`}
-                          onClick={() =>
-                            askConfirm(t('orders.delete_confirm'), () => {
-                              deleteOrder(order.id).catch((err) => {
-                                console.error('Failed to delete order', err);
-                                window.alert(t('common.delete_error'));
-                              });
-                            })
-                          }
-                          className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-stone-100 hover:border-rose-100 bg-white"
-                          title={t('orders.delete_title')}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -854,7 +969,7 @@ export default function OwnerCabinet() {
                 return (
                   <div key={item.id} id={`admin-dish-${item.id}`} className="bg-white border border-stone-200/50 rounded-2xl p-3 shadow-sm hover:shadow-md transition-all flex gap-3 overflow-hidden relative">
                     <img
-                      src={item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80'}
+                      src={item.image || ITEM_FALLBACK_IMG}
                       alt={item.nameUa}
                       className="w-20 h-20 object-cover rounded-xl shrink-0 bg-stone-100"
                     />
@@ -901,7 +1016,7 @@ export default function OwnerCabinet() {
                               askConfirm(t('menu.delete_item_confirm'), () => {
                                 deleteMenuItem(item.id).catch((err) => {
                                   console.error('Failed to delete dish', err);
-                                  window.alert(t('common.delete_error'));
+                                  notify(t('common.delete_error'));
                                 });
                               })
                             }
@@ -959,8 +1074,7 @@ export default function OwnerCabinet() {
                         onClick={() =>
                           askConfirm(t('cat.delete_confirm'), () => {
                             deleteCategory(cat.id).catch((err) => {
-                              console.error('Failed to delete category', err);
-                              window.alert(t('common.delete_error'));
+                              console.error('Failed to delete category', err);                                  notify(t('common.delete_error'));
                             });
                           })
                         }
@@ -988,10 +1102,25 @@ export default function OwnerCabinet() {
                 <input
                   id="new-table-input"
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={newTableNumber}
-                  onChange={(e) => setNewTableNumber(e.target.value)}
+                  onChange={(e) => setNewTableNumber(e.target.value.replace(/\D/g, ''))}
                   className="bg-stone-50 border border-stone-200 text-sm rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                   required
+                />
+              </div>
+              <div className="flex-1 flex flex-col gap-1.5 w-full">
+                <label htmlFor="new-table-comment" className="text-xs font-bold text-stone-500">
+                  {t('tables.comment_label')}
+                </label>
+                <input
+                  id="new-table-comment"
+                  type="text"
+                  value={newTableComment}
+                  onChange={(e) => setNewTableComment(e.target.value)}
+                  placeholder={t('tables.comment_placeholder')}
+                  className="bg-stone-50 border border-stone-200 text-sm rounded-xl px-4 py-2.5 w-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
               <button
@@ -1038,7 +1167,7 @@ export default function OwnerCabinet() {
                                 await regenerateTableQr(table.id);
                               } catch (err) {
                                 console.error('Failed to generate QR', err);
-                                window.alert(t('common.save_error'));
+                                notify(t('common.save_error'));
                               }
                             }}
                             className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2 py-1 rounded-md transition-all"
@@ -1052,16 +1181,23 @@ export default function OwnerCabinet() {
                     {/* Right column: table name + download */}
                     <div className="flex flex-col justify-between gap-2 p-3 flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-extrabold text-stone-900 text-sm truncate">
-                          {t('tables.table_label')} {label}
-                        </span>
+                        <div className="min-w-0 flex flex-col gap-0.5">
+                          <span className="font-extrabold text-stone-900 text-sm truncate">
+                            {t('tables.table_label')} {label}
+                          </span>
+                          {table.comment ? (
+                            <span className="text-[10px] text-stone-400 font-medium leading-tight truncate">
+                              {table.comment}
+                            </span>
+                          ) : null}
+                        </div>
                         <button
                           id={`delete-table-${label}`}
                           onClick={() =>
                             askConfirm(t('tables.delete_confirm'), () => {
                               deleteTable(label).catch((err) => {
                                 console.error('Failed to delete table', err);
-                                window.alert(t('common.delete_error'));
+                                notify(t('common.delete_error'));
                               });
                             })
                           }
